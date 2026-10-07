@@ -17,13 +17,30 @@ const SCHEMA = `
 	CREATE TABLE NTUser (
 		userId INTEGER,
 		linkId INTEGER DEFAULT 0,
+		accountId INTEGER DEFAULT 0,
 		displayName TEXT,
 		friendNickName TEXT,
 		nickName TEXT,
 		statusMessage TEXT,
+		profileImageUrl TEXT,
+		fullProfileImageUrl TEXT,
+		phoneNumber TEXT,
+		friendType INTEGER DEFAULT 0,
 		favorite INTEGER DEFAULT 0,
 		hidden INTEGER DEFAULT 0,
 		purged INTEGER DEFAULT 0
+	);
+	CREATE TABLE NTChatFolder (
+		name TEXT,
+		hidden INTEGER DEFAULT 0,
+		sortOrder INTEGER DEFAULT 0
+	);
+	CREATE TABLE NTCalendar (
+		calendarId INTEGER PRIMARY KEY
+	);
+	CREATE TABLE NTEvent (
+		eventId INTEGER PRIMARY KEY,
+		calendarId INTEGER
 	);
 	CREATE TABLE NTChatMessage (
 		logId INTEGER PRIMARY KEY,
@@ -63,29 +80,52 @@ export function seedUser(
 	row: {
 		userId: number;
 		linkId?: number;
+		accountId?: number;
 		displayName?: string | null;
 		friendNickName?: string | null;
 		nickName?: string | null;
 		statusMessage?: string | null;
+		profileImageUrl?: string | null;
+		fullProfileImageUrl?: string | null;
+		phoneNumber?: string | null;
+		friendType?: number;
 		favorite?: boolean;
 		hidden?: boolean;
 		purged?: boolean;
 	},
 ): void {
 	db.prepare(
-		`INSERT INTO NTUser (userId, linkId, displayName, friendNickName, nickName, statusMessage, favorite, hidden, purged)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO NTUser (userId, linkId, accountId, displayName, friendNickName, nickName, statusMessage,
+				profileImageUrl, fullProfileImageUrl, phoneNumber, friendType, favorite, hidden, purged)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		row.userId,
 		row.linkId ?? 0,
+		row.accountId ?? 0,
 		row.displayName ?? null,
 		row.friendNickName ?? null,
 		row.nickName ?? null,
 		row.statusMessage ?? null,
+		row.profileImageUrl ?? null,
+		row.fullProfileImageUrl ?? null,
+		row.phoneNumber ?? null,
+		row.friendType ?? 0,
 		row.favorite ? 1 : 0,
 		row.hidden ? 1 : 0,
 		row.purged ? 1 : 0,
 	);
+}
+
+export function seedFolder(db: KakaoDb, name: string, hidden = false, sortOrder = 0): void {
+	db.prepare('INSERT INTO NTChatFolder (name, hidden, sortOrder) VALUES (?, ?, ?)').run(name, hidden ? 1 : 0, sortOrder);
+}
+
+export function seedCalendar(db: KakaoDb, calendarId: number): void {
+	db.prepare('INSERT INTO NTCalendar (calendarId) VALUES (?)').run(calendarId);
+}
+
+export function seedEvent(db: KakaoDb, eventId: number, calendarId: number): void {
+	db.prepare('INSERT INTO NTEvent (eventId, calendarId) VALUES (?, ?)').run(eventId, calendarId);
 }
 
 export function seedChat(
