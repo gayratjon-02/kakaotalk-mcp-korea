@@ -62,6 +62,7 @@ export function seedUser(
 	db: KakaoDb,
 	row: {
 		userId: number;
+		linkId?: number;
 		displayName?: string | null;
 		friendNickName?: string | null;
 		nickName?: string | null;
@@ -73,9 +74,10 @@ export function seedUser(
 ): void {
 	db.prepare(
 		`INSERT INTO NTUser (userId, linkId, displayName, friendNickName, nickName, statusMessage, favorite, hidden, purged)
-			VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		row.userId,
+		row.linkId ?? 0,
 		row.displayName ?? null,
 		row.friendNickName ?? null,
 		row.nickName ?? null,

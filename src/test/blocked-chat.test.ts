@@ -11,6 +11,7 @@ const chat = (id: number, name: string): Chat => ({
 	id: String(id),
 	name,
 	type: 0,
+	kind: 'direct',
 	memberCount: 2,
 	unreadCount: 0,
 	lastMessageAt: null,
