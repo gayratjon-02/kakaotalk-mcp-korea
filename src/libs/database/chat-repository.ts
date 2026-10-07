@@ -3,6 +3,7 @@ import { Message } from '../enum/message.enum.js';
 import { AppError } from '../server/app-error.js';
 import type { Chat } from '../type/chat.type.js';
 import type { ChatMessage } from '../type/message.type.js';
+import type { UnreadChat } from '../type/unread.type.js';
 import { getDb } from './connection.js';
 
 const MAX_LIMIT = 500;
@@ -146,4 +147,25 @@ export function messagesAfter(logId: string, limit = 100): ChatMessage[] {
 		.all(logId, clamp(limit)) as MessageRow[];
 	const me = myUserId();
 	return rows.map((row) => toMessage(row, me));
+}
+
+// chats with unread messages, each with the newest incoming messages (at most perChat)
+export function unreadSummary(perChat = 5, maxChats = 20): UnreadChat[] {
+	const cappedPerChat = Math.min(Math.max(Math.trunc(perChat) || 1, 1), 50);
+	return listChats(MAX_LIMIT)
+		.filter((chat) => chat.unreadCount > 0)
+		.slice(0, Math.min(Math.max(Math.trunc(maxChats) || 1, 1), 50))
+		.map((chat) => {
+			const incoming = listMessages({ chatId: chat.id, limit: Math.min(chat.unreadCount, MAX_LIMIT) })
+				.filter((message) => !message.fromMe)
+				.slice(0, cappedPerChat)
+				.reverse();
+			return {
+				chatId: chat.id,
+				chatName: chat.name,
+				unreadCount: chat.unreadCount,
+				lastMessageAt: chat.lastMessageAt,
+				messages: incoming,
+			};
+		});
 }
