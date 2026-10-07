@@ -77,7 +77,7 @@ npm run build
 
 ## 크레딧
 
-키 생성과 데이터베이스 방식은 [kakaocli](https://github.com/silver-flight-group/kakaocli) (MIT)를 따릅니다. 자세한 내용은 [NOTICE.md](./NOTICE.md)를 참고하세요.
+키 생성과 데이터베이스 방식은 [kakaocli](https://github.com/silver-flight-group/kakaocli) (MIT)를 따릅니다.
 
 ## 라이선스
 

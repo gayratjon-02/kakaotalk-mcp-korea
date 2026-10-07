@@ -77,7 +77,7 @@ Commits follow Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`).
 
 ## Credits
 
-Key derivation and the database approach follow [kakaocli](https://github.com/silver-flight-group/kakaocli) (MIT). See [NOTICE.md](./NOTICE.md).
+Key derivation and the database approach follow [kakaocli](https://github.com/silver-flight-group/kakaocli) (MIT).
 
 ## License
 
