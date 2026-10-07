@@ -25,7 +25,7 @@
   <!-- server -->
   <rect x="250" y="98" width="320" height="56" class="card" />
   <text x="410" y="121" class="title">kakaotalk-mcp-korea</text>
-  <text x="410" y="138" class="sub">Node.js + TypeScript · 14 MCP tools</text>
+  <text x="410" y="138" class="sub">Node.js + TypeScript · 20 MCP tools</text>
 
   <path d="M330,154 L190,196" class="edge" />
   <path d="M490,154 L630,196" class="edge" />
