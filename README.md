@@ -43,7 +43,7 @@ Against a real, personal KakaoTalk database: listing chats, reading and searchin
 
 File reading was tried against real shared files in a group chat: 5 files read (3 pdf, 1 pptx, 1 docx), an expired file correctly reported `FILE_EXPIRED`, and the download path (for a file not yet on the Mac) was exercised once and verified (size and the PDF `%PDF` signature matched) before the downloaded copy was deleted. `extractText` is additionally covered by generated, non-personal fixture files for docx, pptx, xlsx and pdf.
 
-Sending itself now goes through the native helper described above instead of AppleScript. It has not been tested end to end yet: opening a brand-new chat window and an actual send are both still unverified, so do not treat them as working until this note is updated.
+Sending itself now goes through the native helper described above instead of AppleScript. `dryRun` (opens the chat window and checks it without typing) passed 6/6 real runs, including with an unrelated chat window already open — the window-matching check correctly refused to act on the wrong one. Returning focus to the previous app afterward mostly worked in these runs, but the person testing also switched windows manually during some of them, so that part is not cleanly proven either way. An actual send (typing and pressing Return) has not been tested yet, so do not treat it as working until this note is updated.
 
 ## Requirements
 
@@ -56,6 +56,8 @@ Sending itself now goes through the native helper described above instead of App
 ## Build requirements
 
 Sending a message drives KakaoTalk through a small native helper (`src/native/kakao-ax.swift`, compiled to `dist/bin/kakao-ax`) instead of AppleScript — AppleScript located chat windows by numeric index, which broke when window order shifted. The helper only touches the windows it opens itself and never the ones you already had open.
+
+It also tries to stay out of your way: if KakaoTalk's main window is already visible on your current Space, the helper does not activate the app at all. Opening a chat still needs a real keypress (there is no accessibility action for it), so KakaoTalk briefly becomes the active app for that one step, and your previous app is reactivated once the run ends. A message is only ever typed into the exact window that is confirmed focused and matches the target chat by name — if another chat window is in the way, nothing is sent rather than risk the wrong window. Some loss of focus while sending is expected and brief; it cannot be fully avoided with Apple's public automation APIs (see `notes/` for the research behind this, not tracked in the repository).
 
 - Xcode Command Line Tools (`xcode-select --install`), for the `swiftc` compiler
 - `npm run build` compiles both the TypeScript and the helper; the helper is only rebuilt when `kakao-ax.swift` changes
