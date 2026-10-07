@@ -8,6 +8,8 @@ export enum Message {
 	DATABASE_NOT_FOUND = 'DATABASE_NOT_FOUND',
 	DATABASE_LOCKED = 'DATABASE_LOCKED',
 	CHAT_NOT_FOUND = 'CHAT_NOT_FOUND',
+	CHAT_BLOCKED = 'CHAT_BLOCKED',
+	CHAT_LIST_NOT_FOUND = 'CHAT_LIST_NOT_FOUND',
 	CHAT_AMBIGUOUS = 'CHAT_AMBIGUOUS',
 	CURSOR_INVALID = 'CURSOR_INVALID',
 	WINDOW_MISMATCH = 'WINDOW_MISMATCH',
@@ -60,6 +62,18 @@ const TEXT: Record<Message, Record<Lang, string>> = {
 		[Lang.KO]: '해당 이름의 채팅방이 없습니다.',
 		[Lang.RU]: 'Чат с таким названием не найден.',
 		[Lang.UZ]: 'Bu nomdagi chat topilmadi.',
+	},
+	[Message.CHAT_LIST_NOT_FOUND]: {
+		[Lang.EN]: 'Could not find the chat list in the KakaoTalk window.',
+		[Lang.KO]: '카카오톡 창에서 채팅 목록을 찾을 수 없습니다.',
+		[Lang.RU]: 'Список чатов в окне KakaoTalk не найден.',
+		[Lang.UZ]: "KakaoTalk oynasida chatlar ro'yxati topilmadi.",
+	},
+	[Message.CHAT_BLOCKED]: {
+		[Lang.EN]: 'This chat is on the local block list. Nothing was opened or sent.',
+		[Lang.KO]: '이 채팅방은 차단 목록에 있습니다. 열거나 보내지 않았습니다.',
+		[Lang.RU]: 'Этот чат в списке блокировки. Ничего не открыто и не отправлено.',
+		[Lang.UZ]: "Bu chat bloklash ro'yxatida. Hech narsa ochilmadi va yuborilmadi.",
 	},
 	[Message.CHAT_AMBIGUOUS]: {
 		[Lang.EN]: 'More than one chat matches that name. Use the exact name or the chat id.',

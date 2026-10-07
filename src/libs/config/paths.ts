@@ -11,4 +11,5 @@ export const paths = {
 	globalPrefs: join(HOME, 'Library/Preferences/com.kakao.KakaoTalkMac.plist'),
 	configDir: join(HOME, '.config/kakaotalk-mcp-korea'),
 	accountFile: join(HOME, '.config/kakaotalk-mcp-korea/account.json'),
+	blockedFile: join(HOME, '.config/kakaotalk-mcp-korea/blocked-chats.json'),
 } as const;
