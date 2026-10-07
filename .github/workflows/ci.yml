@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test on macOS, Node ${{ matrix.node }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # the install step compiles the native Swift helper with this runner's own compiler
+      - run: npm ci
+      - run: npm test
+      - name: The helper was built by the install step
+        run: test -x dist/bin/kakao-ax
+
+  package:
+    name: Check the published package
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:release
+      - name: The package holds what it should and nothing else
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e "
+            const files = JSON.parse(require('fs').readFileSync('pack.json', 'utf8'))[0].files.map((f) => f.path);
+            const bad = files.filter((f) => f.startsWith('dist/test/') || f.startsWith('dist/bin/') || f.includes('.env') || f.startsWith('notes/'));
+            const need = ['dist/index.js', 'src/native/kakao-ax.swift', 'scripts/build-native.mjs', 'LICENSE', 'README.md'];
+            const missing = need.filter((f) => !files.includes(f));
+            if (bad.length || missing.length) { console.error('unexpected:', bad, 'missing:', missing); process.exit(1); }
+            console.log('package ok,', files.length, 'files');
+          "
