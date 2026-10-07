@@ -425,7 +425,8 @@ func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 		if openedByUs { closeWindow(window) }
 	}
 
-	if title(window) != chat {
+	// a window that has just appeared may not carry its title yet, so the title gets a moment to settle before it is judged
+	if !waitUntil(2, { title(window) == chat }) {
 		closeIfOurs()
 		fail("WINDOW_MISMATCH")
 	}
