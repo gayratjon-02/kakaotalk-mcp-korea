@@ -51,13 +51,11 @@ export function findMyReply(chatId: string, targetId: string, text: string, sinc
 	const rows = getDb()
 		.prepare(`${SELECT} WHERE chatId = ? AND authorId = ? AND type IN (?, ?) AND message = ? AND sentAt >= ? ORDER BY logId DESC LIMIT 5`)
 		.all(chatId, ownUserId(), REPLY_KIND, REPLY_KIND + DELETED_FLAG, text, sinceSeconds) as RawMessage[];
-	return (
-		rows.find((row) => {
-			try {
-				return String((JSON.parse(row.attachment ?? '') as { src_logId?: unknown }).src_logId) === targetId;
-			} catch {
-				return false;
-			}
-		}) ?? null
-	);
+	return rows.find((row) => sourceLogId(row.attachment) === targetId) ?? null;
+}
+
+// Message ids are 19 digits, beyond what a JSON number holds exactly, so JSON.parse rounds them (...537 becomes ...500).
+// The id is therefore read from the raw attachment text as a string.
+export function sourceLogId(attachment: string | null): string | null {
+	return attachment?.match(/"src_logId"\s*:\s*(\d+)/)?.[1] ?? null;
 }
