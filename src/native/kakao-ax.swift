@@ -146,6 +146,13 @@ func findMainWindow(_ app: AXUIElement) -> AXUIElement? {
 func ensureMainWindow(_ app: AXUIElement) -> AXUIElement {
 	// the common case needs no activation at all, so the user's focus is left alone
 	if let window = findMainWindow(app) { return window }
+	// the window list can be empty for a moment right after another window closed, so look again before giving up
+	var settled: AXUIElement?
+	_ = waitUntil(3) {
+		settled = findMainWindow(app)
+		return settled != nil
+	}
+	if let window = settled { return window }
 	// in background mode the app is never brought forward: ask the user to show the window instead
 	guard foregroundAllowed else { fail("MAIN_WINDOW_MISSING", "background mode: the main window is not on this Space or is closed") }
 	// windows on another display or Space are invisible to the Accessibility API until the app is brought forward
@@ -464,6 +471,8 @@ func probeMenu(_ app: AXUIElement, pid: pid_t, chat: String, match: String, pres
 				let fresh = descendants(session.window, depth: 10).filter { !contains(beforeTree, $0) } + afterWindows.flatMap { [$0] + descendants($0, depth: 10) }
 				let interesting: Set<String> = ["AXButton", "AXMenuItem", "AXCheckBox", "AXRadioButton", "AXPopUpButton", "AXSheet", "AXPopover", "AXDialog", "AXMenu", "AXWindow", "AXMenuButton", "AXImage"]
 				for element in fresh where interesting.contains(role(element) ?? "") {
+					let named = !(title(element) ?? "").isEmpty || !(text(element, "AXDescription") ?? "").isEmpty
+					if ["AXButton", "AXImage"].contains(role(element) ?? "") && (!named || text(element, "AXDescription") == "Profile") { continue }
 					found.append(["role": role(element) ?? "?", "title": title(element) ?? "", "desc": text(element, "AXDescription") ?? "", "id": identifier(element) ?? ""])
 				}
 				// the emoji buttons carry no name, so list every readable attribute of the first few to find what identifies them
@@ -487,8 +496,14 @@ func probeMenu(_ app: AXUIElement, pid: pid_t, chat: String, match: String, pres
 					emojiDetails.append(detail)
 				}
 				let emojiCount = fresh.filter { role($0) == "AXButton" && text($0, "AXDescription") == "emoji" }.count
+				// selection mode (delete only for me): which tick boxes exist and which are ticked
+				let boxes = descendants(session.window, depth: 12).filter { role($0) == "AXCheckBox" }
+				func ticked(_ box: AXUIElement) -> Bool { (attribute(box, "AXValue") as? NSNumber)?.intValue == 1 }
+				let rowBoxes = ([row] + descendants(row, depth: 8)).filter { role($0) == "AXCheckBox" }
+				report["selection"] = ["boxes": boxes.count, "ticked": boxes.filter(ticked).count, "targetRowBoxes": rowBoxes.count, "targetRowTicked": rowBoxes.filter(ticked).count]
 				report["afterPress"] = ["newWindows": afterWindows.count, "emojiButtons": emojiCount, "emojiDetails": emojiDetails, "otherControls": found.filter { $0["desc"] != "emoji" }]
-				// back out without confirming anything
+				// back out without confirming anything; selection mode has its own Cancel button
+				if let cancel = descendants(session.window, depth: 12).first(where: { role($0) == "AXButton" && title($0) == "Cancel" }) { press(cancel) }
 				for window in afterWindows { closeWindow(window) }
 				_ = AXUIElementPerformAction(session.window, "AXCancel" as CFString)
 				for element in fresh where ["AXSheet", "AXPopover", "AXDialog", "AXMenu"].contains(role(element) ?? "") {
@@ -532,6 +547,74 @@ func emojiButtons(app: AXUIElement, window: AXUIElement) -> [AXUIElement] {
 	return []
 }
 
+func frame(of element: AXUIElement) -> CGRect? {
+	if let value = attribute(element, "AXFrame"), CFGetTypeID(value) == AXValueGetTypeID() {
+		var rect = CGRect.zero
+		if AXValueGetValue(value as! AXValue, .cgRect, &rect), rect.height > 0 { return rect }
+	}
+	guard let positionValue = attribute(element, "AXPosition"), let sizeValue = attribute(element, "AXSize"),
+		CFGetTypeID(positionValue) == AXValueGetTypeID(), CFGetTypeID(sizeValue) == AXValueGetTypeID() else { return nil }
+	var point = CGPoint.zero
+	var size = CGSize.zero
+	guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &point), AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else { return nil }
+	return CGRect(origin: point, size: size)
+}
+
+// the first of the message's own elements that reports a position: the row, then its cell and text
+func messageFrame(row: AXUIElement) -> CGRect? {
+	([row] + descendants(row, depth: 6)).lazy.compactMap { frame(of: $0) }.first
+}
+
+func isTicked(_ box: AXUIElement) -> Bool { (attribute(box, "AXValue") as? NSNumber)?.intValue == 1 }
+
+// "Delete only for me" turns the chat into a selection mode: a tick box next to every message plus OK and Cancel.
+// The tick boxes are not inside the message row, so the one for the target is found by where it sits on screen.
+// Nothing is confirmed unless exactly the target's box is ticked; any doubt cancels the selection instead.
+func deleteOnlyForMe(window: AXUIElement, locateRow: () -> AXUIElement?) -> String {
+	func button(_ name: String) -> AXUIElement? {
+		descendants(window, depth: 12).first { role($0) == "AXButton" && title($0) == name }
+	}
+	var ok: AXUIElement?
+	_ = waitUntil(3) {
+		ok = button("OK")
+		return ok != nil
+	}
+	guard let okButton = ok else { fail("MENU_NOT_FOUND", "the selection mode did not open") }
+	func abort(_ detail: String) -> Never {
+		if let cancel = button("Cancel") { press(cancel) }
+		fail("MENU_NOT_FOUND", detail)
+	}
+	// the list is rebuilt when selection mode starts, so the message row is looked up again instead of reusing the old one
+	var freshRow: AXUIElement?
+	_ = waitUntil(2) {
+		freshRow = locateRow()
+		return freshRow != nil
+	}
+	guard let row = freshRow else { abort("the message row is gone after selection mode started") }
+	let boxes = descendants(window, depth: 12).filter { role($0) == "AXCheckBox" }
+	var matching = ([row] + descendants(row, depth: 8)).filter { role($0) == "AXCheckBox" }
+	if matching.count != 1, let rowFrame = messageFrame(row: row) {
+		matching = boxes.filter { box in frame(of: box).map { rowFrame.minY - 2 <= $0.midY && $0.midY <= rowFrame.maxY + 2 } ?? false }
+	}
+	guard matching.count == 1, let target = matching.first else { abort("expected one tick box for the message, found \(matching.count)") }
+	if !isTicked(target) { press(target) }
+	guard waitUntil(1.5, { isTicked(target) }) else { abort("the message could not be ticked") }
+	guard boxes.filter(isTicked).count == 1 else { abort("more than the target message is ticked") }
+
+	let before = descendants(window, depth: 12)
+	press(okButton)
+	Thread.sleep(forTimeInterval: 0.8)
+	// a confirmation may follow; only a NEW button with an exact confirming title is pressed
+	let confirmTitles: Set<String> = ["Delete", "Confirm", "Yes"]
+	let fresh = descendants(window, depth: 12).filter { !contains(before, $0) && role($0) == "AXButton" && confirmTitles.contains(title($0) ?? "") }
+	if let confirm = fresh.first {
+		press(confirm)
+		Thread.sleep(forTimeInterval: 0.8)
+		return "confirmed:\(title(confirm) ?? "")"
+	}
+	return "no-confirmation"
+}
+
 // Runs one action from a message's context menu. The message is found by its exact text, counted from the newest
 // (nth = 0 is the latest copy), so an identical older message is never touched by mistake.
 func messageAction(_ app: AXUIElement, pid: pid_t, chat: String, match: String, nth: Int, action: String, replyText: String?, reactionIndex: Int, dryRun: Bool) {
@@ -539,14 +622,17 @@ func messageAction(_ app: AXUIElement, pid: pid_t, chat: String, match: String, 
 	if action == "reply" && !dryRun && (replyText ?? "").isEmpty { fail("USAGE", "reply needs --text") }
 	let session = openChat(app, pid: pid, chat: chat)
 	// a freshly opened window fills its message list a moment later, so wait for the message instead of reading once
-	var rows: [AXUIElement] = []
-	_ = waitUntil(5) {
-		guard let table = messageTable(in: session.window) else { return false }
-		rows = children(table).filter { role($0) == "AXRow" && exactTexts(in: $0).contains(match) }
-		return rows.count > nth
+	func locateRow() -> AXUIElement? {
+		guard let table = messageTable(in: session.window) else { return nil }
+		let rows = children(table).filter { role($0) == "AXRow" && exactTexts(in: $0).contains(match) }
+		return rows.count > nth ? rows[rows.count - 1 - nth] : nil
 	}
-	guard rows.count > nth else { fail("MESSAGE_NOT_VISIBLE", "found \(rows.count) matching rows") }
-	let row = rows[rows.count - 1 - nth]
+	var found: AXUIElement?
+	_ = waitUntil(5) {
+		found = locateRow()
+		return found != nil
+	}
+	guard let row = found else { fail("MESSAGE_NOT_VISIBLE", "the message was not found in the loaded window") }
 	guard let cell = ([row] + descendants(row, depth: 4)).first(where: { actionNames($0).contains("AXShowMenu") }) else { fail("MENU_NOT_FOUND") }
 	guard let menu = openContextMenu(app: app, window: session.window, cell: cell, expecting: Set(menuTitles.values).union(["Copy"])) else { fail("MENU_NOT_FOUND") }
 	let available = children(menu).compactMap { role($0) == "AXMenuItem" ? title($0) : nil }.filter { !$0.isEmpty }
@@ -567,9 +653,15 @@ func messageAction(_ app: AXUIElement, pid: pid_t, chat: String, match: String, 
 	press(item)
 	switch action {
 	case "delete-everyone", "delete-me", "delete-auto":
-		// KakaoTalk deletes right away, without a confirmation dialog
-		Thread.sleep(forTimeInterval: 1.2)
-		succeed(["ok": true, "action": action, "applied": wanted == menuTitles["delete-everyone"] ? "everyone" : "me"])
+		if wanted == menuTitles["delete-me"] {
+			// delete only for me works through a selection mode that has to be confirmed
+			let step = deleteOnlyForMe(window: session.window, locateRow: locateRow)
+			succeed(["ok": true, "action": action, "applied": "me", "step": step])
+		} else {
+			// delete for everyone runs right away, without a confirmation dialog
+			Thread.sleep(forTimeInterval: 1.2)
+			succeed(["ok": true, "action": action, "applied": "everyone"])
+		}
 	case "reply":
 		_ = waitUntil(2) { descendants(session.window, depth: 8).contains { role($0) == "AXButton" && text($0, "AXDescription") == "Close" } }
 		let method = submit(app, pid: pid, session: session, message: replyText ?? "")
