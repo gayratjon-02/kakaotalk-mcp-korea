@@ -1,4 +1,4 @@
-import { MESSAGE_KIND_LABEL } from '../enum/message-kind.enum.js';
+import { kindLabel } from '../enum/message-kind.enum.js';
 import { Message } from '../enum/message.enum.js';
 import { AppError } from '../server/app-error.js';
 import type { Chat } from '../type/chat.type.js';
@@ -6,6 +6,9 @@ import type { ChatMessage } from '../type/message.type.js';
 import { getDb } from './connection.js';
 
 const MAX_LIMIT = 500;
+
+// NTChatMeta rows of this type hold the group title as plain text
+const META_TITLE = 3;
 
 const SENDER_NAME = 'COALESCE(u.displayName, u.friendNickName, u.nickName)';
 
@@ -49,7 +52,7 @@ function toMessage(row: MessageRow, me: string): ChatMessage {
 		senderId: row.senderId,
 		senderName: row.senderName,
 		fromMe: row.senderId === me,
-		kind: MESSAGE_KIND_LABEL[row.kind] ?? 'unknown',
+		kind: kindLabel(row.kind),
 		text: row.text,
 		sentAt: iso(row.sentAt),
 	};
@@ -60,6 +63,9 @@ export function listChats(limit = 50): Chat[] {
 		.prepare(
 			`SELECT CAST(r.chatId AS TEXT) AS id, r.type AS type, r.chatName AS chatName,
 				COALESCE(u.displayName, u.friendNickName, u.nickName) AS peerName,
+				(SELECT m.content FROM NTChatMeta m WHERE m.chatId = r.chatId AND m.type = ${META_TITLE}
+					ORDER BY m.revision DESC LIMIT 1) AS metaTitle,
+				(SELECT o.linkName FROM NTOpenLink o WHERE o.linkId = r.linkId AND r.linkId > 0) AS openName,
 				r.activeMembersCount AS memberCount, r.countOfNewMessage AS unreadCount,
 				r.lastUpdatedAt AS lastAt
 			FROM NTChatRoom r
@@ -71,13 +77,15 @@ export function listChats(limit = 50): Chat[] {
 		type: number;
 		chatName: string | null;
 		peerName: string | null;
+		metaTitle: string | null;
+		openName: string | null;
 		memberCount: number;
 		unreadCount: number;
 		lastAt: number;
 	}>;
 	return rows.map((row) => ({
 		id: row.id,
-		name: row.chatName || row.peerName || '(unknown)',
+		name: row.chatName || row.peerName || row.metaTitle || row.openName || '(unknown)',
 		type: row.type,
 		memberCount: row.memberCount,
 		unreadCount: row.unreadCount,
