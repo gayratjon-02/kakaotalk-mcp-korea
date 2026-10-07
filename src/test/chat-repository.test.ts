@@ -108,12 +108,11 @@ test('unreadSummary only returns chats with unread messages', () => {
 	assert.equal(summary[0].chatId, '1');
 });
 
-// KNOWN BUG (found by this test, not yet fixed — reported to the peer session that owns
-// chat-repository.ts): unreadSummary() reads `limit: unreadCount` messages in sentAt DESC order and
-// only afterwards filters out my own messages. If an outgoing reply landed between two incoming
-// unread messages, that older incoming message falls outside the DESC-limited window and never
-// reaches the filter, so it is silently dropped even though it is genuinely unread.
-test('unreadSummary should not drop an unread message that has one of my replies after it (currently fails)', () => {
+// Regression test for a bug this suite found: unreadSummary() used to read `limit: unreadCount`
+// messages in sentAt DESC order and only afterwards filter out my own messages. An outgoing reply
+// landing between two incoming unread messages pushed the older one outside that DESC-limited
+// window, silently dropping a genuinely unread message. Fixed by excluding my own messages in SQL.
+test('unreadSummary should not drop an unread message that has one of my replies after it', () => {
 	seedMe(db, ME);
 	seedChat(db, { chatId: 1, chatName: 'Busy', unreadCount: 2, lastUpdatedAt: 100 });
 	seedMessage(db, { logId: 1, chatId: 1, authorId: FRIEND, message: 'first', sentAt: 1 });
