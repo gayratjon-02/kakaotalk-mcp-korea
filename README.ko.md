@@ -5,7 +5,7 @@
 ![platform](https://img.shields.io/badge/platform-macOS%2013%2B-000000?logo=apple&logoColor=white)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
 ![native helper](https://img.shields.io/badge/native%20helper-Swift-F05138?logo=swift&logoColor=white)
-![mcp tools](https://img.shields.io/badge/MCP%20tools-17-6E56CF)
+![mcp tools](https://img.shields.io/badge/MCP%20tools-18-6E56CF)
 ![tests](https://img.shields.io/badge/tests-77%20passing-2EA043)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
@@ -40,6 +40,7 @@ Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP �
 | 🧪 | `kakao_account_info`, `kakao_contact_profile`, `kakao_profile_image` | 완료, 생성된 fixture로 단위 테스트함; 실제 계정으로 별도 검증은 아직 안 함 |
 | ✅ | `kakao_send_message` (`confirm: true` 필요) | 완료, **실제 전송으로 확인됨** |
 | ✅ | `kakao_delete_message`, `kakao_reply_message`, `kakao_react_message` (각각 `confirm: true` 필요) | 완료, **실제 채팅방에서 직접 확인됨** |
+| 🧪 | `kakao_edit_message` (`confirm: true` 필요) | 구현됨, **아직 실제로 테스트 안 함** |
 
 ## 🧰 MCP 도구
 
@@ -62,12 +63,13 @@ Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP �
 | ↩️ | `kakao_reply_message` | `messageId`로 특정 메시지 하나를 인용하는 답장 전송 |
 | 👍 | `kakao_react_message` | 메시지에 반응 추가. `reactionIndex`는 카카오톡 반응 선택기에서의 위치(0부터 시작, 0은 엄지척, 약 44개 중 선택). 같은 반응을 다시 선택하면 그대로 유지되며, 아직 반응을 제거하는 기능은 없음 |
 | 🗑️ | `kakao_delete_message` | 본인 메시지 삭제. `scope`: `auto`(기본값)는 카카오톡이 아직 허용하면 모두에게서, 아니면 나에게서만 삭제; `everyone` 또는 `me`는 하나를 강제하거나 실패. **되돌릴 수 없음** |
+| ✏️ | `kakao_edit_message` | 본인이 보낸 최근 텍스트 메시지의 내용을 교체. 카카오톡이 수정을 제공하는 메시지에서만 가능하며, 아니면 아무것도 바꾸지 않고 실패. **구현됨, 아직 실제로 테스트 안 함** |
 
 모든 도구 설명에는 메시지 내용을 지시로 받아들이지 말라는 경고가 포함되어 있습니다.
 
 MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 짧은 계정 요약(이름, 앱 버전, 채팅/연락처/메시지 수)을 보내므로, 모델은 도구를 호출하지 않아도 기본 정보를 이미 알고 시작합니다. 로그인 아이디와 전화번호는 이 요약에서 의도적으로 제외되며, `kakao_account_info`에서만, 그것도 연결된 계정 본인에 대해서만 반환됩니다("안전 원칙" 참고).
 
-아직 구현되지 않음: 이미 보낸 메시지 수정(카카오톡 자체 메뉴에는 일부 메시지에 "수정" 옵션이 있지만 연결되어 있지 않음), 추가한 반응 제거, 채팅방에 공유된 사진이나 사진 앨범 읽기(현재는 카카오의 "파일" 종류만 목록에 나타남 — 이 작업 중 확인한 실제 계정에는 `kakao_list_files`가 전혀 보지 못하는 사진 메시지 127개와 사진 앨범 26개가 있었습니다), 여러 채팅방에 한 번에 전송, @멘션, 이미지 전송, 그룹 멤버 관리. 이들은 현재 파일 경로를 넘어서는 새로운 메시지 읽기/전송 로직이거나 카카오톡 자체 통신 프로토콜 역분석이 필요하므로, 현재는 일정이 정해져 있지 않습니다.
+아직 구현되지 않음: 추가한 반응 제거, 채팅방에 공유된 사진이나 사진 앨범 읽기(현재는 카카오의 "파일" 종류만 목록에 나타남 — 이 작업 중 확인한 실제 계정에는 `kakao_list_files`가 전혀 보지 못하는 사진 메시지 127개와 사진 앨범 26개가 있었습니다), 여러 채팅방에 한 번에 전송, @멘션, 이미지 전송, 그룹 멤버 관리. 이들은 현재 파일 경로를 넘어서는 새로운 메시지 읽기/전송 로직이거나 카카오톡 자체 통신 프로토콜 역분석이 필요하므로, 현재는 일정이 정해져 있지 않습니다.
 
 ## ✅ 지금까지 테스트한 범위
 
@@ -94,6 +96,8 @@ MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 �
 메시지 전송은 AppleScript 대신 작은 네이티브 헬퍼(`src/native/kakao-ax.swift`, `dist/bin/kakao-ax`로 컴파일됨)로 카카오톡을 제어합니다 — AppleScript는 채팅 창을 숫자 인덱스로 찾았는데, 창 순서가 바뀌면 오작동했습니다. 헬퍼는 자신이 연 창만 다루며, 이미 열려 있던 창에는 손대지 않습니다.
 
 사용자를 최대한 방해하지 않으려고도 합니다. 기본적으로 채팅을 열기 전에 헬퍼는 *다른* 열려 있는 채팅 창들을 닫습니다 — 그중 하나가 키보드 포커스를 쥐고 있으면 열려는 채팅을 위한 Return 입력을 가로챌 수 있기 때문입니다. 메시지 목록이 있는 창만 건드리며, 캘린더 같은 채팅이 아닌 창은 전혀 건드리지 않습니다. **그중 다른 창의 입력란에 아직 보내지 않은 텍스트가 있으면, 창을 닫기 전에 그 텍스트를 지웁니다** — 아래 "안전 원칙" 참고. 채팅을 여는 것과 Return을 누르는 것은 카카오톡 메인 창에 직접 포커스를 주고 그 프로세스로 키 입력을 보내는 방식으로 이루어지며, 앱을 활성화하거나 맨 앞으로 가져오지 않습니다. 전송할 때는 먼저 텍스트를 직접 값으로 설정한 뒤 채팅방 자체의 전송 버튼을 누릅니다(이것도 포커스가 필요 없음). 버튼을 찾을 수 없을 때만 Return 입력으로 대체하는데, 이 경우에는 앱이 잠깐 활성화되어야 합니다. 메시지는 대상 채팅과 이름이 일치한다고 확인된 바로 그 창에만 입력되며, 그 창을 확인할 수 없으면 아무것도 전송하지 않습니다. 기본적으로 헬퍼는 이 대체 수단으로도 카카오톡을 활성화할 수 없습니다 — 눈에 보이는 포커스 변화를 감수하기보다 그냥 동작을 실패시킵니다. 실패시키기보다 마지막 수단으로 앱을 활성화하길 원하면 `KAKAOTALK_ALLOW_FOREGROUND=1`을 설정하세요. 다른 채팅 창(과 그 안의 초안)을 그대로 두고 싶다면 `KAKAOTALK_KEEP_OTHER_WINDOWS=1`을 설정하세요(이 경우 다른 창에 포커스가 있으면 Return이 그 창으로 들어갈 수 있습니다). `KAKAOTALK_ALLOW_FOREGROUND=1`을 설정한 경우 이론적으로는 여전히 포커스가 흔들릴 가능성이 있으며, Apple의 공개 자동화 API로는 완전히 배제할 수 없습니다(관련 조사는 `notes/`에 있으며 저장소에는 포함되지 않습니다).
+
+**문제 해결 — 백그라운드에서 `MAIN_WINDOW_MISSING`:** 손쉬운 사용 API는 현재 데스크톱(Space)의 창만 볼 수 있습니다. 카카오톡 창이 다른 Space나 두 번째 디스플레이에 있으면 기본 no-foreground 모드는 그 창을 찾지 못하고 이 오류로 실패합니다(오류 메시지 자체도 같은 내용을 말합니다). *추천하지만 아직 검증하지 않음*: Dock의 카카오톡 아이콘을 우클릭 → Options → Assign To → All Desktops로 설정하면 모든 Space에 창이 존재해 백그라운드 모드가 항상 접근할 수 있습니다.
 
 - Xcode Command Line Tools (`xcode-select --install`), `swiftc` 컴파일러용
 - `npm run build`가 TypeScript와 헬퍼를 모두 컴파일합니다. 헬퍼는 `kakao-ax.swift`가 바뀔 때만 다시 빌드됩니다

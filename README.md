@@ -5,7 +5,7 @@
 ![platform](https://img.shields.io/badge/platform-macOS%2013%2B-000000?logo=apple&logoColor=white)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
 ![native helper](https://img.shields.io/badge/native%20helper-Swift-F05138?logo=swift&logoColor=white)
-![mcp tools](https://img.shields.io/badge/MCP%20tools-17-6E56CF)
+![mcp tools](https://img.shields.io/badge/MCP%20tools-18-6E56CF)
 ![tests](https://img.shields.io/badge/tests-77%20passing-2EA043)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
@@ -40,6 +40,7 @@ An MCP server and CLI that lets any MCP client — Claude Code, Claude Desktop, 
 | 🧪 | `kakao_account_info`, `kakao_contact_profile`, `kakao_profile_image` | Done, covered by unit tests with generated fixtures; not yet separately exercised against a real account |
 | ✅ | `kakao_send_message` (requires `confirm: true`) | Done, **confirmed with a real send** |
 | ✅ | `kakao_delete_message`, `kakao_reply_message`, `kakao_react_message` (each requires `confirm: true`) | Done, **confirmed live in a real chat** |
+| 🧪 | `kakao_edit_message` (requires `confirm: true`) | Implemented, **not yet tested live** |
 
 ## 🧰 MCP tools
 
@@ -62,12 +63,13 @@ An MCP server and CLI that lets any MCP client — Claude Code, Claude Desktop, 
 | ↩️ | `kakao_reply_message` | Send a text that quotes one specific message by its `messageId` |
 | 👍 | `kakao_react_message` | Add a reaction to a message. `reactionIndex` is its position in KakaoTalk's picker (0 is thumbs up, ~44 choices); re-adding the same one leaves it unchanged, and there is no way to remove a reaction yet |
 | 🗑️ | `kakao_delete_message` | Delete one of your messages. `scope`: `auto` (default) deletes for everyone when KakaoTalk still allows it for that message, otherwise only for you; `everyone` or `me` force one or fail. **Cannot be undone** |
+| ✏️ | `kakao_edit_message` | Replace the text of one of your own recent text messages. KakaoTalk only offers editing for eligible messages; otherwise the call fails and changes nothing. **Implemented, not yet tested live** |
 
 Every tool's description warns the agent not to treat message text as instructions.
 
 When an MCP client connects, the server sends a short account summary (name, app version, chat/contact/message counts) as part of its `initialize` response, so the model already knows the basics without calling a tool first. The login id and phone number are deliberately left out of this summary — they are only ever returned by `kakao_account_info`, and never for anyone other than the connected account (see "Safety").
 
-Not implemented yet: editing a message you already sent (KakaoTalk's own menu has an "Edit" option on eligible messages; this is not wired up), removing a reaction once added, reading photos or photo albums shared in a chat (only files of Kakao's own "file" kind are listed — a real account checked while building this had 127 photo messages and 26 photo albums that `kakao_list_files` does not see at all), sending to multiple chats at once, @mentions, sending images, and managing group members. These would need either new message-reading/sending logic beyond the current file path, or reverse-engineering KakaoTalk's own network protocol, so for now they are not planned on a timeline.
+Not implemented yet: removing a reaction once added, reading photos or photo albums shared in a chat (only files of Kakao's own "file" kind are listed — a real account checked while building this had 127 photo messages and 26 photo albums that `kakao_list_files` does not see at all), sending to multiple chats at once, @mentions, sending images, and managing group members. These would need either new message-reading/sending logic beyond the current file path, or reverse-engineering KakaoTalk's own network protocol, so for now they are not planned on a timeline.
 
 ## ✅ Tested so far
 
@@ -94,6 +96,8 @@ Sending itself now goes through the native helper described above instead of App
 Sending a message drives KakaoTalk through a small native helper (`src/native/kakao-ax.swift`, compiled to `dist/bin/kakao-ax`) instead of AppleScript — AppleScript located chat windows by numeric index, which broke when window order shifted. The helper only touches the windows it opens itself and never the ones you already had open.
 
 It also tries to stay out of your way. By default, before opening a chat the helper closes your *other* open chat windows — one of them could otherwise hold the keyboard focus and swallow the Return keypress meant for the chat being opened. Only windows with a message list are touched, and non-chat windows (like the calendar) are never touched. **If one of those other windows has unsent text in its input, that text is cleared before the window is closed** — see "Safety" below. Opening the chat itself and pressing Return are then done by focusing KakaoTalk's main window directly and sending the keypress to its process — without activating the app or taking it to the foreground at all. Sending the text first sets it directly, then presses the chat's own Send button (no focus needed for that either); only if the button cannot be found does it fall back to a Return keypress, which would require the app briefly active. A message is only ever typed into the exact window confirmed to match the target chat by name — if the right window cannot be confirmed, nothing is sent. By default the helper is not even allowed to activate KakaoTalk as that fallback: the action simply fails instead of ever risking a visible focus change. Set `KAKAOTALK_ALLOW_FOREGROUND=1` if you would rather it activate the app as a last resort than fail outright. Set `KAKAOTALK_KEEP_OTHER_WINDOWS=1` if you'd rather it left your other open chat windows (and any drafts in them) alone (then a Return press may land in the wrong one if you have one focused). Some loss of focus is still theoretically possible when `KAKAOTALK_ALLOW_FOREGROUND=1` is set, and cannot be fully ruled out with Apple's public automation APIs (see `notes/` for the research behind this, not tracked in the repository).
+
+**Troubleshooting — `MAIN_WINDOW_MISSING` in the background:** the Accessibility API can only see windows on the current desktop (Space). If KakaoTalk's window lives on a different Space or a second display, the default no-foreground mode will not find it and fails with this error (the error message itself says the same thing). *Recommended, not yet verified*: right-click the KakaoTalk icon in the Dock → Options → Assign To → All Desktops, so its window is present on every Space and the background mode can always reach it.
 
 - Xcode Command Line Tools (`xcode-select --install`), for the `swiftc` compiler
 - `npm run build` compiles both the TypeScript and the helper; the helper is only rebuilt when `kakao-ax.swift` changes
