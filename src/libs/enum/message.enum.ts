@@ -9,6 +9,7 @@ export enum Message {
 	DATABASE_LOCKED = 'DATABASE_LOCKED',
 	CHAT_NOT_FOUND = 'CHAT_NOT_FOUND',
 	CHAT_BLOCKED = 'CHAT_BLOCKED',
+	CHAT_WINDOW_NOT_OPENED = 'CHAT_WINDOW_NOT_OPENED',
 	CHAT_LIST_NOT_FOUND = 'CHAT_LIST_NOT_FOUND',
 	CHAT_AMBIGUOUS = 'CHAT_AMBIGUOUS',
 	CURSOR_INVALID = 'CURSOR_INVALID',
@@ -74,6 +75,12 @@ const TEXT: Record<Message, Record<Lang, string>> = {
 		[Lang.KO]: '이 채팅방은 차단 목록에 있습니다. 열거나 보내지 않았습니다.',
 		[Lang.RU]: 'Этот чат в списке блокировки. Ничего не открыто и не отправлено.',
 		[Lang.UZ]: "Bu chat bloklash ro'yxatida. Hech narsa ochilmadi va yuborilmadi.",
+	},
+	[Message.CHAT_WINDOW_NOT_OPENED]: {
+		[Lang.EN]: 'The chat window did not open. Nothing was sent.',
+		[Lang.KO]: '채팅창이 열리지 않았습니다. 메시지를 보내지 않았습니다.',
+		[Lang.RU]: 'Окно чата не открылось. Ничего не отправлено.',
+		[Lang.UZ]: "Chat oynasi ochilmadi. Hech narsa yuborilmadi.",
 	},
 	[Message.CHAT_AMBIGUOUS]: {
 		[Lang.EN]: 'More than one chat matches that name. Use the exact name or the chat id.',

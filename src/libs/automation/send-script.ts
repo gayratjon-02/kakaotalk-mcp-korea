@@ -60,12 +60,15 @@ on run argv
 			set selected of targetRow to true
 			delay 0.2
 			key code 36
-			delay 0.9
 			set chatWin to missing value
-			repeat with i from 1 to (count of windows)
-				if (value of attribute "AXIdentifier" of window i) is not "Main Window" then set chatWin to window i
+			repeat 12 times
+				delay 0.4
+				repeat with i from 1 to (count of windows)
+					if (value of attribute "AXIdentifier" of window i) is not "Main Window" then set chatWin to window i
+				end repeat
+				if chatWin is not missing value then exit repeat
 			end repeat
-			if chatWin is missing value then error "INPUT_NOT_FOUND"
+			if chatWin is missing value then error "CHAT_WINDOW_NOT_OPENED"
 			if (name of chatWin) is not chatName then
 				try
 					perform action "AXPress" of (value of attribute "AXCloseButton" of chatWin)
@@ -73,12 +76,16 @@ on run argv
 				error "WINDOW_MISMATCH"
 			end if
 			set inputArea to missing value
-			repeat with sa in scroll areas of chatWin
-				if (count of tables of sa) is 0 then
-					try
-						set inputArea to text area 1 of sa
-					end try
-				end if
+			repeat 8 times
+				repeat with sa in scroll areas of chatWin
+					if (count of tables of sa) is 0 then
+						try
+							set inputArea to text area 1 of sa
+						end try
+					end if
+				end repeat
+				if inputArea is not missing value then exit repeat
+				delay 0.3
 			end repeat
 			if inputArea is missing value then error "INPUT_NOT_FOUND"
 			if dryRun then
