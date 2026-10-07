@@ -23,9 +23,24 @@ func emit(_ object: [String: Any]) {
 	print(text)
 }
 
+// The app in front when the run started. KakaoTalk has to be active while a chat is opened because the
+// open step is a key press, so focus is handed back to this app as soon as the run ends.
+var previousApp: NSRunningApplication? = NSWorkspace.shared.frontmostApplication
+
+func restoreFocus() {
+	guard let previous = previousApp, previous.bundleIdentifier != bundleId, !previous.isTerminated else { return }
+	previous.activate(options: [])
+}
+
 func fail(_ code: String, _ detail: String = "") -> Never {
+	restoreFocus()
 	emit(["ok": false, "code": code, "detail": detail])
 	exit(0)
+}
+
+func succeed(_ object: [String: Any]) {
+	restoreFocus()
+	emit(object)
 }
 
 // MARK: - Accessibility helpers
@@ -69,6 +84,19 @@ func waitUntil(_ seconds: Double, step: Double = 0.2, _ condition: () -> Bool) -
 	}
 }
 
+// A key press goes to whichever window is key, so it must never be sent before the intended window is the focused one.
+// Raising a window of an app that is already active does not take focus from other apps.
+func focusWindow(_ app: AXUIElement, _ window: AXUIElement) -> Bool {
+	func isFocused() -> Bool {
+		guard let focused = attribute(app, "AXFocusedWindow") else { return false }
+		return CFEqual(focused, window)
+	}
+	if isFocused() { return true }
+	_ = AXUIElementPerformAction(window, "AXRaise" as CFString)
+	_ = AXUIElementSetAttributeValue(app, "AXFocusedWindow" as CFString, window)
+	return waitUntil(2) { isFocused() }
+}
+
 func pressReturn(pid: pid_t) {
 	for down in [true, false] {
 		CGEvent(keyboardEventSource: nil, virtualKey: returnKey, keyDown: down)?.postToPid(pid)
@@ -95,6 +123,8 @@ func findMainWindow(_ app: AXUIElement) -> AXUIElement? {
 
 // The main window disappears when it was closed instead of hidden. Reopening the app asks it to show it again.
 func ensureMainWindow(_ app: AXUIElement) -> AXUIElement {
+	// the common case needs no activation at all, so the user's focus is left alone
+	if let window = findMainWindow(app) { return window }
 	// windows on another display or Space are invisible to the Accessibility API until the app is brought forward
 	runningApp()?.activate(options: [.activateAllWindows])
 	var seen: AXUIElement?
@@ -103,6 +133,7 @@ func ensureMainWindow(_ app: AXUIElement) -> AXUIElement {
 		return seen != nil
 	}
 	if let window = seen { return window }
+	// the main window disappears when it was closed instead of hidden; reopening the app asks it to show it again
 	openApp()
 	var found: AXUIElement?
 	_ = waitUntil(6) {
@@ -171,6 +202,12 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 		guard AXUIElementSetAttributeValue(list, "AXSelectedRows" as CFString, [rows[0]] as CFArray) == .success else {
 			fail("CHAT_WINDOW_NOT_OPENED", "row selection was refused")
 		}
+		// `open` goes through LaunchServices like a Dock click, which macOS honours for a background process
+		openApp()
+		_ = waitUntil(3) { runningApp()?.isActive ?? false }
+		// another chat window may be the key window; Return would then land in its input box
+		guard focusWindow(app, main) else { fail("CHAT_WINDOW_NOT_OPENED", "the main window could not be focused") }
+		_ = AXUIElementSetAttributeValue(list, "AXFocused" as CFString, kCFBooleanTrue)
 		Thread.sleep(forTimeInterval: 0.2)
 		pressReturn(pid: pid)
 
@@ -208,11 +245,15 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 
 	if dryRun {
 		closeIfOurs()
-		emit(["ok": true, "dryRun": true, "reusedWindow": !openedByUs])
+		succeed(["ok": true, "dryRun": true, "reusedWindow": !openedByUs])
 		return
 	}
 
-	_ = AXUIElementPerformAction(window, "AXRaise" as CFString)
+	// never type unless this exact chat window is the focused one
+	guard focusWindow(app, window) else {
+		closeIfOurs()
+		fail("WINDOW_MISMATCH", "the chat window is not the focused window")
+	}
 	_ = AXUIElementSetAttributeValue(field, "AXFocused" as CFString, kCFBooleanTrue)
 	guard AXUIElementSetAttributeValue(field, "AXValue" as CFString, message as CFString) == .success,
 		text(field, "AXValue") == message else {
@@ -226,7 +267,7 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 	let cleared = waitUntil(4) { (text(field, "AXValue") ?? "").isEmpty }
 	closeIfOurs()
 	if !cleared { fail("SEND_UNVERIFIED") }
-	emit(["ok": true, "sent": true, "reusedWindow": !openedByUs])
+	succeed(["ok": true, "sent": true, "reusedWindow": !openedByUs])
 }
 
 // MARK: - Entry point
@@ -245,8 +286,7 @@ let appElement = AXUIElementCreateApplication(process.processIdentifier)
 
 switch command {
 case "inspect":
-	runningApp()?.activate(options: [.activateAllWindows])
-	Thread.sleep(forTimeInterval: 1)
+	_ = ensureMainWindow(appElement)
 	inspect(appElement)
 case "send":
 	guard let flag = arguments.firstIndex(of: "--chat"), flag + 1 < arguments.count else { fail("USAGE") }
