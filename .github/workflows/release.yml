@@ -23,13 +23,25 @@ jobs:
       - run: npm ci
       - name: The tag must match the package version
         run: test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
-      - run: npm test
-      - run: npm run build:release
+      # a version that is already on npm (for example one published by hand) is not published a second time
+      - name: Is this version already on npm?
+        id: exists
+        run: |
+          if npm view "kakaotalk-mcp-korea@$(node -p "require('./package.json').version")" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.exists.outputs.published == 'false'
+        run: npm test
+      - if: steps.exists.outputs.published == 'false'
+        run: npm run build:release
       # published with a provenance statement, so anyone can see which commit and workflow built the package
-      - run: npm publish --provenance --access public
+      - if: steps.exists.outputs.published == 'false'
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: GitHub release with generated notes
-        run: gh release create "${GITHUB_REF_NAME}" --generate-notes --title "${GITHUB_REF_NAME}"
+      - name: GitHub release with generated notes, unless one exists
+        run: gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || gh release create "${GITHUB_REF_NAME}" --generate-notes --title "${GITHUB_REF_NAME}"
         env:
           GH_TOKEN: ${{ github.token }}
