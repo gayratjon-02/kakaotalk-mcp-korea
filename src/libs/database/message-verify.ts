@@ -30,9 +30,31 @@ export function ownUserId(): string {
 	return (getDb().prepare('SELECT CAST(userId AS TEXT) AS id FROM NTChatContext LIMIT 1').get() as { id: string }).id;
 }
 
+// Deleting for everyone leaves a companion feed row (type 0, feedType 14) naming the message; deleting only for me sets status 2.
+// The 16384 bit on the stored kind is NOT a deletion marker by itself: long messages carry it too.
+const DELETE_FEED = `f.type = 0 AND f.message LIKE '%"feedType":14%'`;
+
+export function deletedForEveryone(id: string): boolean {
+	const row = getDb()
+		.prepare(`SELECT COUNT(*) AS c FROM NTChatMessage f WHERE ${DELETE_FEED} AND f.message LIKE ?`)
+		.get(`%"logId":${id}%`) as { c: number };
+	return row.c > 0;
+}
+
+// gone from the database, or hidden for this account only
+export function deletedForMe(id: string): boolean {
+	const row = rawMessage(id);
+	return !row || (getDb().prepare('SELECT status FROM NTChatMessage WHERE logId = ?').get(id) as { status: number }).status === 2;
+}
+
 // only live text messages and replies carry text that the window shows verbatim
 export function hasShownText(message: RawMessage): boolean {
-	return !isDeletedType(message.type) && [TEXT_KIND, REPLY_KIND].includes(baseType(message.type)) && Boolean(message.text);
+	return (
+		[TEXT_KIND, REPLY_KIND].includes(baseType(message.type)) &&
+		Boolean(message.text) &&
+		!deletedForEveryone(message.id) &&
+		!deletedForMe(message.id)
+	);
 }
 
 // how many newer, live messages in the chat have exactly the same text; the window search counts from the newest
@@ -40,7 +62,8 @@ export function newerIdenticalCopies(target: RawMessage): number {
 	const row = getDb()
 		.prepare(
 			`SELECT COUNT(*) AS c FROM NTChatMessage
-			WHERE chatId = ? AND message = ? AND type < ${DELETED_FLAG} AND (sentAt > ? OR (sentAt = ? AND logId > ?))`,
+			WHERE chatId = ? AND message = ? AND status <> 2 AND (sentAt > ? OR (sentAt = ? AND logId > ?))
+			AND NOT EXISTS (SELECT 1 FROM NTChatMessage f WHERE ${DELETE_FEED} AND f.message LIKE '%"logId":' || NTChatMessage.logId || '%')`,
 		)
 		.get(target.chatId, target.text, target.sentAt, target.sentAt, target.id) as { c: number };
 	return row.c;
@@ -58,4 +81,25 @@ export function findMyReply(chatId: string, targetId: string, text: string, sinc
 // The id is therefore read from the raw attachment text as a string.
 export function sourceLogId(attachment: string | null): string | null {
 	return attachment?.match(/"src_logId"\s*:\s*(\d+)/)?.[1] ?? null;
+}
+
+export type Reaction = { id: string; label: string | null };
+
+// Reactions live in NTChatLogMeta (type 2): `content` holds everyone's reactions, `extra.myRx` the connected account's.
+export function myReactions(messageId: string): Reaction[] {
+	const row = getDb().prepare('SELECT content, extra FROM NTChatLogMeta WHERE logId = ? AND type = 2').get(messageId) as
+		| { content: string | null; extra: string | null }
+		| undefined;
+	if (!row) return [];
+	try {
+		const mine = (JSON.parse(row.extra ?? '{}') as { myRx?: Array<{ o?: string }> }).myRx ?? [];
+		const shown = (JSON.parse(row.content ?? '{}') as { rx?: Array<{ o?: string; a?: Record<string, string> }> }).rx ?? [];
+		return mine.flatMap((item) => {
+			if (!item.o) return [];
+			const label = shown.find((entry) => entry.o === item.o)?.a;
+			return [{ id: item.o, label: label ? (Object.values(label)[0] ?? null) : null }];
+		});
+	} catch {
+		return [];
+	}
 }

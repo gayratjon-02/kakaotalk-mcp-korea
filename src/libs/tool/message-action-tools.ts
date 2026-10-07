@@ -7,8 +7,10 @@ import { isChatBlocked } from '../database/blocked-chat.js';
 import { resolveChat } from '../database/chat-repository.js';
 import {
 	findMyReply,
+	deletedForEveryone,
+	deletedForMe,
 	hasShownText,
-	isDeletedType,
+	myReactions,
 	ownUserId,
 	rawMessage,
 	type RawMessage,
@@ -84,10 +86,8 @@ export function registerMessageActionTools(server: McpServer): void {
 				}
 				const action: MessageActionKind = scope === 'everyone' ? 'delete-everyone' : scope === 'me' ? 'delete-me' : 'delete-auto';
 				const reply = await runMessageAction({ chatName, target: message, action });
-				const done = await waitFor(() => {
-					const now = rawMessage(messageId);
-					return !now || isDeletedType(now.type);
-				});
+				// each scope leaves a different trace, so each is checked on its own: everyone adds a companion feed row, me sets status 2
+				const done = await waitFor(() => (reply.applied === 'everyone' ? deletedForEveryone(messageId) : deletedForMe(messageId)));
 				if (!done) throw new AppError(Message.ACTION_NOT_CONFIRMED);
 				return ok({ deleted: true, applied: reply.applied, chat: chatName, messageId });
 			} catch (error) {
@@ -133,7 +133,8 @@ export function registerMessageActionTools(server: McpServer): void {
 		{
 			title: 'React to a message',
 			description:
-				'Add a reaction to one text message by its messageId. reactionIndex is the position in KakaoTalk\'s reaction picker, counted from 0 (the picker offers about 44). ' +
+				'Add a reaction to one text message by its messageId. reactionIndex is the position in KakaoTalk\'s reaction picker, counted from 0 (the picker offers about 44; 0 is thumbs up). ' +
+				'Choosing the reaction you already gave left it unchanged in testing; there is no tool to remove a reaction yet. ' +
 				'Call with confirm false first, then with confirm true after the user approved.',
 			inputSchema: {
 				chat: z.string().min(1),
@@ -149,10 +150,11 @@ export function registerMessageActionTools(server: McpServer): void {
 				if (!confirm) {
 					return ok({ preview: true, chat: chatName, message: message.text, reactionIndex, note: t(Message.SEND_NOT_CONFIRMED, env.lang) });
 				}
-				const before = message.supplement;
+				const before = JSON.stringify(myReactions(messageId));
 				const reply = await runMessageAction({ chatName, target: message, action: 'react', reactionIndex });
-				const changed = await waitFor(() => rawMessage(messageId)?.supplement !== before, 4000);
-				return ok({ reacted: true, chat: chatName, messageId, reactionIndex, offered: reply.offered, confirmedByDatabase: Boolean(changed) });
+				const changed = await waitFor(() => JSON.stringify(myReactions(messageId)) !== before, 5000);
+				// the state after the click is reported, not just "reacted", so the caller sees what is really set
+				return ok({ reacted: true, chat: chatName, messageId, reactionIndex, offered: reply.offered, confirmedByDatabase: Boolean(changed), yourReactionsNow: myReactions(messageId) });
 			} catch (error) {
 				return fail(error);
 			}
