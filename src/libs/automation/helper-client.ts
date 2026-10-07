@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { env } from '../config/env.js';
-import { readDesktopBinding } from '../device/desktop-binding.js';
 import { Message } from '../enum/message.enum.js';
 import { AppError } from '../server/app-error.js';
 
@@ -34,20 +33,8 @@ function commonFlags(): string[] {
 	return [...(env.keepOtherWindows ? ['--keep-other-windows'] : []), ...(env.allowForeground ? [] : ['--no-foreground'])];
 }
 
-// Background mode only works when KakaoTalk is assigned to All Desktops, so a known "not assigned" stops the call
-// before any window is touched. Foreground mode and an explicit opt-out skip the check; an unreadable setting never blocks.
-function assertDesktopReady(): void {
-	if (env.allowForeground || env.skipDesktopCheck) return;
-	if (readDesktopBinding() === 'not-assigned') throw new AppError(Message.DESKTOP_NOT_ASSIGNED);
-}
-
 export function runHelper(args: string[], stdin = ''): Promise<HelperReply> {
 	if (!existsSync(HELPER)) return Promise.reject(new AppError(Message.HELPER_MISSING));
-	try {
-		assertDesktopReady();
-	} catch (error) {
-		return Promise.reject(error);
-	}
 	return new Promise((resolve, reject) => {
 		const child = spawn(HELPER, [...args, ...commonFlags()], { stdio: ['pipe', 'pipe', 'pipe'] });
 		let out = '';

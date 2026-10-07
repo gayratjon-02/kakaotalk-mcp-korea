@@ -42,11 +42,7 @@ export type ContactSummary = {
 	byFriendType: Record<string, number>;
 };
 
-import type { DesktopBinding } from '../device/desktop-binding.js';
-
 export type AccountInfo = {
-	// whether KakaoTalk is assigned to All Desktops, which background window actions need
-	desktop: DesktopBinding;
 	profile: OwnProfile;
 	app: AppInfo;
 	chats: ChatSummary;
