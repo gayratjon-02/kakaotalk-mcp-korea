@@ -194,19 +194,25 @@ func hasMessageList(_ window: AXUIElement) -> Bool {
 }
 
 // Another chat window can hold the key focus and swallow key presses, so other chat windows are closed first.
-// A chat window is one with a message list. When it also has a message input, the input must be empty:
-// unsent text is never discarded. Channel and bot chats have no input, so there is nothing to lose.
-// Windows without a message list, such as the calendar, are left alone.
-func closeOtherChatWindows(_ app: AXUIElement, keeping chat: String) {
-	guard closeOthers else { return }
+// A chat window is one with a message list; windows without one, such as the calendar, are left alone.
+// Unsent text in a message input is cleared before the window is closed (the user asked for this). A window whose
+// input could not be cleared stays open, so nothing is closed while it still looks like it holds a draft.
+func closeOtherChatWindows(_ app: AXUIElement, keeping chat: String) -> (closed: Int, clearedDrafts: Int) {
+	guard closeOthers else { return (0, 0) }
 	var closed: [AXUIElement] = []
+	var cleared = 0
 	for window in windows(of: app) where identifier(window) != mainWindowId && (freshRun || title(window) != chat) {
 		guard hasMessageList(window) else { continue }
-		if let field = chatInput(in: window), !(text(field, "AXValue") ?? "").isEmpty { continue }
+		if let field = chatInput(in: window), !(text(field, "AXValue") ?? "").isEmpty {
+			_ = AXUIElementSetAttributeValue(field, "AXValue" as CFString, "" as CFString)
+			guard (text(field, "AXValue") ?? "x").isEmpty else { continue }
+			cleared += 1
+		}
 		closeWindow(window)
 		closed.append(window)
 	}
 	_ = waitUntil(2) { !windows(of: app).contains { window in contains(closed, window) } }
+	return (closed.count, cleared)
 }
 
 func inspect(_ app: AXUIElement) {
@@ -220,7 +226,7 @@ func inspect(_ app: AXUIElement) {
 
 func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: String) {
 	let main = ensureMainWindow(app)
-	closeOtherChatWindows(app, keeping: chat)
+	let tidy = closeOtherChatWindows(app, keeping: chat)
 	let before = windows(of: app)
 
 	// a chat window the user already has open for this chat is reused and left open
@@ -292,7 +298,7 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 
 	if dryRun {
 		closeIfOurs()
-		succeed(["ok": true, "dryRun": true, "reusedWindow": !openedByUs])
+		succeed(["ok": true, "dryRun": true, "reusedWindow": !openedByUs, "closedWindows": tidy.closed, "clearedDrafts": tidy.clearedDrafts])
 		return
 	}
 
@@ -328,7 +334,7 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 	let cleared = waitUntil(4) { (text(field, "AXValue") ?? "").isEmpty }
 	closeIfOurs()
 	if !cleared { fail("SEND_UNVERIFIED") }
-	succeed(["ok": true, "sent": true, "reusedWindow": !openedByUs])
+	succeed(["ok": true, "sent": true, "reusedWindow": !openedByUs, "closedWindows": tidy.closed, "clearedDrafts": tidy.clearedDrafts])
 }
 
 // MARK: - Entry point
