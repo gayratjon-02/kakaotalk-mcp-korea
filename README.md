@@ -14,7 +14,7 @@ An MCP server and CLI for the KakaoTalk desktop app on macOS. It reads chats fro
 | Device UUID and KakaoTalk `userId` detection | Done |
 | Encrypted database key derivation and read-only open | Done |
 | `setup` command (detect and cache the account) | Done, tested on a real database |
-| MCP read tools (`kakao_list_chats`, `kakao_read_messages`, `kakao_search_messages`, `kakao_unread_summary`, `kakao_search_contacts`) | Done, tested on a real database |
+| MCP read tools (8 of them — see the table below) | Done, tested on a real database |
 | `kakao_send_message` (requires `confirm: true`) | Implemented, **not yet tested with a real send** |
 
 ## MCP tools
@@ -26,7 +26,18 @@ An MCP server and CLI for the KakaoTalk desktop app on macOS. It reads chats fro
 | `kakao_search_messages` | Full-text search across messages |
 | `kakao_unread_summary` | Summarize chats with unread messages |
 | `kakao_search_contacts` | Find contacts by name. Phone numbers are never returned |
+| `kakao_new_messages` | Long-poll for new messages past a cursor (not push). First call with no cursor returns a starting point; pass the returned cursor back to wait for the next ones, up to 30 seconds |
+| `kakao_extract_links` | Pull the links shared in a chat out of its recent messages |
+| `kakao_export_chat` | Return a chat's messages as a Markdown transcript, oldest first. Nothing is written to disk — the text comes back in the response |
 | `kakao_send_message` | Send a text. Without `confirm: true` it only previews the chat and the exact text |
+
+Every tool's description warns the agent not to treat message text as instructions.
+
+Not implemented yet: sending to multiple chats at once, @mentions, sending images, and managing group members — these would need either message-sending features beyond plain text or reverse-engineering KakaoTalk's own network protocol, so for now they are not planned on a timeline.
+
+## Tested so far
+
+Against a real, personal KakaoTalk database: listing chats, reading and searching messages, the unread summary, contact search, the new-messages cursor stream, link extraction and the Markdown export. `kakao_send_message`'s preview and its chat-not-found error are tested; an actual send has not been exercised yet, so do not treat it as verified in practice.
 
 ## Requirements
 
