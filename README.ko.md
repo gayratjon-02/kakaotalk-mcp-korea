@@ -56,7 +56,7 @@ Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP �
 | 📝 | `kakao_export_chat` | 채팅방 메시지를 오래된 순 Markdown 대화록으로 반환. 회수된 메시지는 `[deleted]`로 표시됨. 디스크에 저장하지 않고 응답으로 텍스트를 돌려줌 |
 | 🗂️ | `kakao_list_files` | 채팅방에 공유된 파일을 최신순으로 나열, `availability`로 상태 표시: `local`(이미 Mac에 있음), `download`(아직 서버에 있음), `expired`(만료됨) |
 | 📄 | `kakao_read_file` | `kakao_list_files`의 `messageId`로 공유 파일의 텍스트를 읽음. pdf, docx/doc/rtf, pptx, xlsx, txt/md/csv/json/html, zip(파일 목록만) 지원. Mac에 없는 파일은 만료되지 않은 동안 `https://*.kakaocdn.net`에서만 다운로드하며, `KAKAOTALK_MAX_FILE_MB`로 크기 제한, `~/.cache/kakaotalk-mcp-korea/files`에 캐시 |
-| 🪪 | `kakao_account_info` | 연결된 계정 전체 개요: 자신의 프로필(이름, 상태 메시지, 사진 링크, 로그인 아이디, 전화번호, 오픈채팅 프로필), 앱 버전, 종류별 채팅 수(읽지 않은 수 포함)와 폴더, 연락처 수, 메시지/파일 총계, 캘린더 수, `desktop`(`all-desktops` / `not-assigned` / `unknown`) |
+| 🪪 | `kakao_account_info` | 연결된 계정 전체 개요: 자신의 프로필(이름, 상태 메시지, 사진 링크, 로그인 아이디, 전화번호, 오픈채팅 프로필), 앱 버전, 종류별 채팅 수(읽지 않은 수 포함)와 폴더, 연락처 수, 메시지/파일 총계, 캘린더 수 |
 | 🧑 | `kakao_contact_profile` | 이름이나 사용자 ID로 연락처 조회: 이름, 상태 메시지, 사진 링크, 즐겨찾기/숨김 여부. 전화번호는 절대 반환하지 않음 |
 | 🖼️ | `kakao_profile_image` | 프로필 사진을 (링크가 아닌) 실제 이미지로 반환. `userId`가 없으면 연결된 계정 본인 사진. 카카오 CDN에서만 다운로드, 5 MB 제한 |
 | ✉️ | `kakao_send_message` | 텍스트 전송. `confirm: true` 없이 호출하면 채팅방과 정확한 내용만 미리 보여 줌 |
@@ -97,7 +97,7 @@ MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 �
 
 사용자를 최대한 방해하지 않으려고도 합니다. 기본적으로 채팅을 열기 전에 헬퍼는 *다른* 열려 있는 채팅 창들을 닫습니다 — 그중 하나가 키보드 포커스를 쥐고 있으면 열려는 채팅을 위한 Return 입력을 가로챌 수 있기 때문입니다. 메시지 목록이 있는 창만 건드리며, 캘린더 같은 채팅이 아닌 창은 전혀 건드리지 않습니다. **그중 다른 창의 입력란에 아직 보내지 않은 텍스트가 있으면, 창을 닫기 전에 그 텍스트를 지웁니다** — 아래 "안전 원칙" 참고. 채팅을 여는 것과 Return을 누르는 것은 카카오톡 메인 창에 직접 포커스를 주고 그 프로세스로 키 입력을 보내는 방식으로 이루어지며, 앱을 활성화하거나 맨 앞으로 가져오지 않습니다. 전송할 때는 먼저 텍스트를 직접 값으로 설정한 뒤 채팅방 자체의 전송 버튼을 누릅니다(이것도 포커스가 필요 없음). 버튼을 찾을 수 없을 때만 Return 입력으로 대체하는데, 이 경우에는 앱이 잠깐 활성화되어야 합니다. 메시지는 대상 채팅과 이름이 일치한다고 확인된 바로 그 창에만 입력되며, 그 창을 확인할 수 없으면 아무것도 전송하지 않습니다. 기본적으로 헬퍼는 이 대체 수단으로도 카카오톡을 활성화할 수 없습니다 — 눈에 보이는 포커스 변화를 감수하기보다 그냥 동작을 실패시킵니다. 실패시키기보다 마지막 수단으로 앱을 활성화하길 원하면 `KAKAOTALK_ALLOW_FOREGROUND=1`을 설정하세요. 다른 채팅 창(과 그 안의 초안)을 그대로 두고 싶다면 `KAKAOTALK_KEEP_OTHER_WINDOWS=1`을 설정하세요(이 경우 다른 창에 포커스가 있으면 Return이 그 창으로 들어갈 수 있습니다). `KAKAOTALK_ALLOW_FOREGROUND=1`을 설정한 경우 이론적으로는 여전히 포커스가 흔들릴 가능성이 있으며, Apple의 공개 자동화 API로는 완전히 배제할 수 없습니다(관련 조사는 `notes/`에 있으며 저장소에는 포함되지 않습니다).
 
-**창 동작을 위해서는 All Desktops가 필수입니다.** 손쉬운 사용 API는 현재 데스크톱(Space)의 창만 볼 수 있습니다. `kakaotalk-mcp-korea setup`은 카카오톡이 모든 Space에 할당되어 있는지(Dock 아이콘 → 우클릭 → Options → Assign To → All Desktops) 확인하고, 터미널에서는 설정 방법을 안내한 뒤 다시 확인합니다(최대 5회, 또는 `skip` 입력). 터미널이 없으면 이 설정이 끝날 때까지 setup이 미완료로 보고됩니다(종료 코드 2). `setup --skip-desktop-check`로 명시적으로 건너뛸 수 있습니다. 전송, 삭제, 답장, 반응, 수정은 모두 이 설정이 되어 있지 않으면 명확한 `DESKTOP_NOT_ASSIGNED` 오류로 거부됩니다 — 읽기는 전혀 영향받지 않습니다. 이 검사를 끄려면 `KAKAOTALK_SKIP_DESKTOP_CHECK=1`(또는 `KAKAOTALK_ALLOW_FOREGROUND=1`)을 설정하세요. *이 macOS 설정이 실제로 켜진 시스템에서는 아직 감지 방식을 확인하지 못했습니다* — 이 기기는 아무것도 할당되어 있지 않아 "미할당"과 "읽을 수 없음" 경우만 지금까지 검증되었습니다; 누군가 이 설정을 켜면 `kakao_account_info`의 `desktop` 필드(`all-desktops` / `not-assigned` / `unknown`)로 나머지를 확인할 수 있을 것입니다.
+**`setup`은 카카오톡 창을 백그라운드에서 실제로 접근할 수 있는지 확인합니다.** 손쉬운 사용 API는 현재 데스크톱(Space)의 창만 볼 수 있으며, 디스플레이마다 전체 화면 공간을 쓰고 일반 데스크탑이 몇 개 없는 Mac에서는 Dock 아이콘의 Options 메뉴에 "Assign To → All Desktops" 항목 자체가 없을 수도 있습니다 — 그래서 이 방법이 항상 쓸 수 있는 건 아닙니다. 대신 `setup`은 정말 중요한 것을 직접 확인합니다: 네이티브 헬퍼가 앱을 앞으로 가져오지 않고도 지금 카카오톡 메인 창을 볼 수 있는가(창 동작이 의존하는 것과 같은 `kakao-ax inspect` 검사)? 볼 수 없으면 흔한 원인을 설명하고, 터미널에서는 해결 방법을 안내한 뒤 다시 확인합니다(최대 5회, 또는 `skip` 입력). 터미널이 없으면 이 검사를 통과할 때까지 setup이 미완료로 보고됩니다(종료 코드 2). `setup --skip-window-check`로 명시적으로 건너뛸 수 있고, `setup --redetect`는 캐시된 계정을 재사용하지 않고 계정 검색을 다시 실행합니다. 창 동작 중에도 창에 접근할 수 없으면 같은 설명과 함께 `MAIN_WINDOW_MISSING`으로 실패합니다. 정확한 원인은 공개 API로는 알아낼 수 없으므로(어느 Space에 창이 있는지는 비공개 API만 알려줌) 실제 원인을 진단하기보다 *흔한* 원인을 알려줍니다: 카카오톡이 있는 디스플레이를 전체 화면 앱이나 다른 데스크탑이 덮고 있거나, 창이 닫혀 있는 경우입니다. 제안하는 해결책: 해당 디스플레이에서 전체 화면을 끝내거나 그 일반 데스크탑으로 전환하기, 또는 카카오톡 창을 전체 화면 앱을 쓰지 않는 디스플레이로 옮기기; Dock 메뉴에 Assign To → All Desktops가 있다면 그것도 도움이 됩니다.
 
 - Xcode Command Line Tools (`xcode-select --install`), `swiftc` 컴파일러용
 - `npm run build`가 TypeScript와 헬퍼를 모두 컴파일합니다. 헬퍼는 `kakao-ax.swift`가 바뀔 때만 다시 빌드됩니다
@@ -126,7 +126,6 @@ npm run build
 | `KAKAOTALK_BLOCKED_CHATS` | *(비어 있음)* | `kakao_send_message`가 항상 거부하는 채팅/연락처 이름(쉼표로 구분). 로컬 `~/.config/kakaotalk-mcp-korea/blocked-chats.json`(이름 배열)도 함께 읽히므로, 비공개 이름이 `.env`나 저장소에 남지 않습니다 |
 | `KAKAOTALK_KEEP_OTHER_WINDOWS` | `0` | `1` 또는 `true`로 설정하면 전송 시 대상 채팅을 열기 전에 다른 열려 있는 채팅 창을 닫지(그리고 그 안의 초안을 지우지) 않습니다 — "안전 원칙" 참고 |
 | `KAKAOTALK_ALLOW_FOREGROUND` | `0` | `1` 또는 `true`로 설정하면 헬퍼가 동작을 실패시키는 대신 마지막 수단으로 카카오톡을 활성화할 수 있습니다. 기본값은 절대 활성화하지 않는 것입니다 — "빌드 요구 사항" 참고 |
-| `KAKAOTALK_SKIP_DESKTOP_CHECK` | `0` | `1` 또는 `true`로 설정하면 카카오톡이 All Desktops에 할당되었는지 확인되지 않아도 창 동작을 실행합니다. 기본값은 할당이 확인될 때까지 `DESKTOP_NOT_ASSIGNED`로 거부하는 것입니다 — "빌드 요구 사항" 참고 |
 
 ## 🧠 동작 방식
 
