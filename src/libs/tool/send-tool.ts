@@ -2,6 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { sendToChat } from '../automation/send-message.js';
 import { isBlockedChat } from '../config/blocklist.js';
+import { isChatBlocked } from '../database/blocked-chat.js';
 import { resolveChat } from '../database/chat-repository.js';
 import { env } from '../config/env.js';
 import { Message, t } from '../enum/message.enum.js';
@@ -30,7 +31,7 @@ export function registerSendTool(server: McpServer): void {
 			try {
 				if (isBlockedChat(chat)) throw new AppError(Message.CHAT_BLOCKED);
 				const target = resolveChat(chat);
-				if (isBlockedChat(target.name)) throw new AppError(Message.CHAT_BLOCKED);
+				if (isChatBlocked(target)) throw new AppError(Message.CHAT_BLOCKED);
 				if (dryRun) {
 					await sendToChat(target.name, text, true);
 					return ok({ dryRun: true, chat: target.name, checked: 'chat window opened, title matched, input found, nothing typed' });
