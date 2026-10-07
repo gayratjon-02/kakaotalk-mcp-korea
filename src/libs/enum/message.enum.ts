@@ -9,6 +9,7 @@ export enum Message {
 	DATABASE_LOCKED = 'DATABASE_LOCKED',
 	CHAT_NOT_FOUND = 'CHAT_NOT_FOUND',
 	CHAT_AMBIGUOUS = 'CHAT_AMBIGUOUS',
+	CURSOR_INVALID = 'CURSOR_INVALID',
 	WINDOW_MISMATCH = 'WINDOW_MISMATCH',
 	INPUT_NOT_FOUND = 'INPUT_NOT_FOUND',
 	ACCESSIBILITY_DENIED = 'ACCESSIBILITY_DENIED',
@@ -65,6 +66,12 @@ const TEXT: Record<Message, Record<Lang, string>> = {
 		[Lang.KO]: '같은 이름의 채팅방이 여러 개 있습니다. 정확한 이름이나 채팅 ID를 사용해 주세요.',
 		[Lang.RU]: 'Найдено несколько чатов. Укажите точное название или id чата.',
 		[Lang.UZ]: 'Bu nomga bir nechta chat mos keldi. Aniq nom yoki chat id bering.',
+	},
+	[Message.CURSOR_INVALID]: {
+		[Lang.EN]: 'The cursor is not valid. Call without a cursor to get a fresh one.',
+		[Lang.KO]: '커서가 올바르지 않습니다. 커서 없이 호출해 새 커서를 받아 주세요.',
+		[Lang.RU]: 'Курсор недействителен. Вызовите без курсора, чтобы получить новый.',
+		[Lang.UZ]: "Kursor noto'g'ri. Yangisini olish uchun kursorsiz chaqiring.",
 	},
 	[Message.WINDOW_MISMATCH]: {
 		[Lang.EN]: 'The opened window does not match the target chat. Nothing was sent.',
