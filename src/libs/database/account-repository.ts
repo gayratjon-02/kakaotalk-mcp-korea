@@ -7,6 +7,7 @@ import type {
 	OpenProfile,
 	OwnProfile,
 } from '../type/account-info.type.js';
+import { readDesktopBinding } from '../device/desktop-binding.js';
 import { listChats } from './chat-repository.js';
 import { getDb } from './connection.js';
 
@@ -94,6 +95,7 @@ export function readAccountInfo(): AccountInfo {
 		last: number | null;
 	};
 	return {
+		desktop: readDesktopBinding(),
 		profile,
 		app: readAppInfo(),
 		chats: chatSummary(),
