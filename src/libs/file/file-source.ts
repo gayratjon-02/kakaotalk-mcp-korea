@@ -12,7 +12,7 @@ const DOWNLOAD_TIMEOUT_MS = 60_000;
 
 export type FileOrigin = { path: string; origin: 'local' | 'download' };
 
-function assertDownloadable(url: string): URL {
+export function assertDownloadable(url: string): URL {
 	let parsed: URL;
 	try {
 		parsed = new URL(url);
