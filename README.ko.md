@@ -13,9 +13,20 @@ macOS 카카오톡 데스크톱 앱용 MCP 서버이자 CLI입니다. 로컬 데
 | 설정 및 경로 | 완료 |
 | 기기 UUID 및 카카오톡 `userId` 감지 | 완료 |
 | 암호화된 데이터베이스 키 생성 및 읽기 전용 열기 | 완료 |
-| `setup` 명령 (계정 저장) | 예정 |
-| MCP 읽기 도구 (채팅방, 메시지, 검색) | 예정 |
-| 메시지 전송 (손쉬운 사용, `confirm: true` 필요) | 예정 |
+| `setup` 명령 (계정 감지 및 저장) | 완료, 실제 데이터베이스에서 테스트 |
+| MCP 읽기 도구 (`kakao_list_chats`, `kakao_read_messages`, `kakao_search_messages`, `kakao_unread_summary`, `kakao_search_contacts`) | 완료, 실제 데이터베이스에서 테스트 |
+| `kakao_send_message` (`confirm: true` 필요) | 구현 완료, **실제 전송은 아직 테스트하지 않음** |
+
+## MCP 도구
+
+| 도구 | 기능 |
+| --- | --- |
+| `kakao_list_chats` | 채팅방 목록 (1:1, 그룹, 오픈채팅) |
+| `kakao_read_messages` | 채팅방의 최근 메시지 읽기 |
+| `kakao_search_messages` | 메시지 전체 검색 |
+| `kakao_unread_summary` | 읽지 않은 메시지가 있는 채팅방 요약 |
+| `kakao_search_contacts` | 이름으로 연락처 찾기. 전화번호는 절대 반환하지 않음 |
+| `kakao_send_message` | 텍스트 전송. `confirm: true` 없이 호출하면 채팅방과 정확한 내용만 미리 보여 줌 |
 
 ## 요구 사항
 

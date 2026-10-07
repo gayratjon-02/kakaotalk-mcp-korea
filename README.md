@@ -13,9 +13,20 @@ An MCP server and CLI for the KakaoTalk desktop app on macOS. It reads chats fro
 | Config and paths | Done |
 | Device UUID and KakaoTalk `userId` detection | Done |
 | Encrypted database key derivation and read-only open | Done |
-| `setup` command (save account) | Planned |
-| MCP read tools (chats, messages, search) | Planned |
-| Send message (Accessibility, requires `confirm: true`) | Planned |
+| `setup` command (detect and cache the account) | Done, tested on a real database |
+| MCP read tools (`kakao_list_chats`, `kakao_read_messages`, `kakao_search_messages`, `kakao_unread_summary`, `kakao_search_contacts`) | Done, tested on a real database |
+| `kakao_send_message` (requires `confirm: true`) | Implemented, **not yet tested with a real send** |
+
+## MCP tools
+
+| Tool | What it does |
+| --- | --- |
+| `kakao_list_chats` | List chat rooms (1:1, group, open chat) |
+| `kakao_read_messages` | Read recent messages of a chat |
+| `kakao_search_messages` | Full-text search across messages |
+| `kakao_unread_summary` | Summarize chats with unread messages |
+| `kakao_search_contacts` | Find contacts by name. Phone numbers are never returned |
+| `kakao_send_message` | Send a text. Without `confirm: true` it only previews the chat and the exact text |
 
 ## Requirements
 
