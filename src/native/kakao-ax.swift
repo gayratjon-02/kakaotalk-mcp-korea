@@ -101,6 +101,23 @@ var remoteWindowSearch = false
 // window element ids grow as the app creates elements, so the next scan reaches a bit past the highest id seen so far
 var highestWindowElementId = 0
 
+// CoreGraphics lists windows with titles and needs no special permission. It cannot control them, but it shows which windows
+// are really on screen. A window that was closed lingers in this list under the same number (it is reused when the chat is
+// opened again) without the on-screen flag, and one that is just closing is still on screen but fading; neither counts.
+// What counts is a window that is on screen, fully opaque and titled: the tool must be able to see all of those, and a key
+// press is never sent while one exists that it cannot see.
+func windowTitlesFromWindowServer(pid: pid_t) -> [String] {
+	let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+	return list.compactMap { entry in
+		guard (entry["kCGWindowOwnerPID"] as? Int32) == pid || (entry["kCGWindowOwnerPID"] as? Int) == Int(pid), (entry["kCGWindowLayer"] as? Int) == 0 else { return nil }
+		guard ((entry["kCGWindowAlpha"] as? Double) ?? 1) >= 0.99 else { return nil }
+		let bounds = entry["kCGWindowBounds"] as? [String: Any] ?? [:]
+		guard ((bounds["Width"] as? Double) ?? 0) > 300, ((bounds["Height"] as? Double) ?? 0) > 300 else { return nil }
+		let name = entry["kCGWindowName"] as? String ?? ""
+		return name.isEmpty ? nil : name
+	}
+}
+
 func remoteWindows(pid: pid_t) -> [AXUIElement] {
 	guard let create = remoteTokenCreate else { return [] }
 	var token = Data(count: 20)
@@ -108,12 +125,21 @@ func remoteWindows(pid: pid_t) -> [AXUIElement] {
 	token.replaceSubrange(4..<8, with: withUnsafeBytes(of: Int32(0)) { Data($0) })
 	token.replaceSubrange(8..<12, with: withUnsafeBytes(of: Int32(0x636f636f)) { Data($0) })
 	var found: [AXUIElement] = []
-	let limit = max(12_000, highestWindowElementId + 6_000)
-	for id in 0..<limit {
+	let expected = windowTitlesFromWindowServer(pid: pid).count
+	// element ids keep growing while the app runs, so a fixed range eventually misses new windows. The scan stops as soon as
+	// every window that the window server reports has been found, and only goes far when some are still missing.
+	let firstRange = max(12_000, highestWindowElementId + 6_000)
+	// a real window was measured at id 3125 on a long running app; 40000 leaves a wide margin and costs about half a second
+	let hardLimit = 40_000
+	var id = 0
+	while id < hardLimit {
 		token.replaceSubrange(12..<20, with: withUnsafeBytes(of: UInt64(id)) { Data($0) })
-		guard let element = create(token as CFData)?.takeRetainedValue(), (attribute(element, "AXRole") as? String) == "AXWindow" else { continue }
-		found.append(element)
-		highestWindowElementId = max(highestWindowElementId, id)
+		if let element = create(token as CFData)?.takeRetainedValue(), (attribute(element, "AXRole") as? String) == "AXWindow" {
+			found.append(element)
+			highestWindowElementId = max(highestWindowElementId, id)
+		}
+		id += 1
+		if id >= firstRange && found.count >= expected { break }
 	}
 	return found
 }
@@ -157,6 +183,16 @@ func focusWindow(_ app: AXUIElement, _ window: AXUIElement) -> Bool {
 	guard foregroundAllowed else { return false }
 	_ = AXUIElementPerformAction(window, "AXRaise" as CFString)
 	return waitUntil(2) { isFocused() }
+}
+
+// Titles of windows the window server shows but the Accessibility search could not find.
+func uncontrollableWindowTitles(app: AXUIElement, pid: pid_t) -> [String] {
+	var remaining = windows(of: app).compactMap { title($0) }
+	var missing: [String] = []
+	for name in windowTitlesFromWindowServer(pid: pid) {
+		if let index = remaining.firstIndex(of: name) { remaining.remove(at: index) } else { missing.append(name) }
+	}
+	return missing
 }
 
 func pressKey(pid: pid_t, key: CGKeyCode) {
@@ -336,11 +372,23 @@ func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 		guard AXUIElementSetAttributeValue(list, "AXSelectedRows" as CFString, [rows[0]] as CFArray) == .success else {
 			fail("CHAT_WINDOW_NOT_OPENED", "row selection was refused")
 		}
+		var openNote = ""
 		func fireOpen() -> Bool {
 			// another chat window may be the key window; Return would then land in its input box
 			guard focusWindow(app, main) else { return false }
 			_ = AXUIElementSetAttributeValue(list, "AXFocused" as CFString, kCFBooleanTrue)
 			Thread.sleep(forTimeInterval: 0.2)
+			// a key press goes to whichever window is key; if a window exists that this tool cannot see, it might be that one
+			// the window server lags a moment behind right after a window was closed, so the two views get time to agree
+			var unseen: [String] = []
+			_ = waitUntil(2.5, step: 0.3) {
+				unseen = uncontrollableWindowTitles(app: app, pid: pid)
+				return unseen.isEmpty
+			}
+			guard unseen.isEmpty else {
+				openNote = "another KakaoTalk window cannot be inspected: \(unseen.joined(separator: ", "))"
+				return false
+			}
 			pressReturn(pid: pid)
 			return true
 		}
@@ -359,7 +407,7 @@ func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 			_ = waitUntil(3) { runningApp()?.isActive ?? false }
 			if fireOpen() { waitForChatWindow(6) }
 		}
-		guard chatWindow != nil else { fail("CHAT_WINDOW_NOT_OPENED", "no new window appeared after Return") }
+		guard chatWindow != nil else { fail("CHAT_WINDOW_NOT_OPENED", openNote.isEmpty ? "no new window appeared after Return" : openNote) }
 		openedByUs = true
 	}
 
