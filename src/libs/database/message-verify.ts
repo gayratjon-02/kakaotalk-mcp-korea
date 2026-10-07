@@ -32,7 +32,7 @@ export function ownUserId(): string {
 
 // Deleting for everyone leaves a companion feed row (type 0, feedType 14) naming the message; deleting only for me sets status 2.
 // The 16384 bit on the stored kind is NOT a deletion marker by itself: long messages carry it too.
-const DELETE_FEED = `f.type = 0 AND f.message LIKE '%"feedType":14%'`;
+export const DELETE_FEED = `f.type = 0 AND f.message LIKE '%"feedType":14%'`;
 
 export function deletedForEveryone(id: string): boolean {
 	const row = getDb()
