@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 340" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <style>
+    .card { fill:#1f2937; stroke:#64748b; stroke-width:1.5; rx:12; }
+    .accent { fill:#1e3a5f; stroke:#3b82f6; stroke-width:1.5; rx:12; }
+    .title { fill:#f8fafc; font-size:15px; font-weight:600; text-anchor:middle; }
+    .sub { fill:#cbd5e1; font-size:11.5px; text-anchor:middle; }
+    .edge { stroke:#64748b; stroke-width:1.5; fill:none; marker-end:url(#arrow); }
+    .label { fill:#94a3b8; font-size:11px; text-anchor:middle; font-style:italic; }
+  </style>
+
+  <!-- MCP client -->
+  <rect x="280" y="10" width="260" height="56" class="accent" />
+  <text x="410" y="33" class="title">MCP client</text>
+  <text x="410" y="50" class="sub">Claude Code · Claude Desktop · any agent</text>
+
+  <path d="M410,66 L410,96" class="edge" />
+  <text x="470" y="86" class="label">MCP (stdio)</text>
+
+  <!-- server -->
+  <rect x="250" y="98" width="320" height="56" class="card" />
+  <text x="410" y="121" class="title">kakaotalk-mcp-korea</text>
+  <text x="410" y="138" class="sub">Node.js + TypeScript · 14 MCP tools</text>
+
+  <path d="M330,154 L190,196" class="edge" />
+  <path d="M490,154 L630,196" class="edge" />
+
+  <!-- two branches -->
+  <rect x="40" y="198" width="260" height="56" class="card" />
+  <text x="170" y="221" class="title">SQLite database</text>
+  <text x="170" y="238" class="sub">read-only · decrypted locally</text>
+
+  <rect x="520" y="198" width="260" height="56" class="card" />
+  <text x="650" y="221" class="title">kakao-ax</text>
+  <text x="650" y="238" class="sub">Swift · Accessibility API</text>
+
+  <path d="M170,254 L300,290" class="edge" />
+  <path d="M650,254 L520,290" class="edge" />
+
+  <!-- app -->
+  <rect x="300" y="292" width="220" height="40" class="accent" />
+  <text x="410" y="317" class="title" font-size="14">KakaoTalk.app</text>
+</svg>
