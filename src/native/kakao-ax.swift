@@ -224,7 +224,21 @@ func inspect(_ app: AXUIElement) {
 	emit(["ok": true, "windows": rows])
 }
 
-func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: String) {
+// An open, verified chat window: the title matched the chat name exactly and the message input was found.
+struct ChatSession {
+	let window: AXUIElement
+	let input: AXUIElement
+	let openedByUs: Bool
+	let closed: Int
+	let clearedDrafts: Int
+
+	// only a window this run opened is closed; one the user already had open stays
+	func closeIfOurs() {
+		if openedByUs { closeWindow(window) }
+	}
+}
+
+func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 	let main = ensureMainWindow(app)
 	let tidy = closeOtherChatWindows(app, keeping: chat)
 	let before = windows(of: app)
@@ -295,6 +309,16 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 		closeIfOurs()
 		fail("INPUT_NOT_FOUND")
 	}
+	return ChatSession(window: window, input: field, openedByUs: openedByUs, closed: tidy.closed, clearedDrafts: tidy.clearedDrafts)
+}
+
+func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: String) {
+	let session = openChat(app, pid: pid, chat: chat)
+	let window = session.window
+	let field = session.input
+	let openedByUs = session.openedByUs
+	let tidy = (closed: session.closed, clearedDrafts: session.clearedDrafts)
+	func closeIfOurs() { session.closeIfOurs() }
 
 	if dryRun {
 		closeIfOurs()
