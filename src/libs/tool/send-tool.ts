@@ -1,9 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { sendToChat } from '../automation/send-message.js';
+import { isBlockedChat } from '../config/blocklist.js';
 import { resolveChat } from '../database/chat-repository.js';
 import { env } from '../config/env.js';
 import { Message, t } from '../enum/message.enum.js';
+import { AppError } from '../server/app-error.js';
 import { fail, ok } from './tool-result.js';
 
 const MAX_TEXT = 4000;
@@ -26,7 +28,9 @@ export function registerSendTool(server: McpServer): void {
 		},
 		async ({ chat, text, confirm, dryRun }) => {
 			try {
+				if (isBlockedChat(chat)) throw new AppError(Message.CHAT_BLOCKED);
 				const target = resolveChat(chat);
+				if (isBlockedChat(target.name)) throw new AppError(Message.CHAT_BLOCKED);
 				if (dryRun) {
 					await sendToChat(target.name, text, true);
 					return ok({ dryRun: true, chat: target.name, checked: 'chat window opened, title matched, input found, nothing typed' });
