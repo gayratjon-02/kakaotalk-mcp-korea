@@ -21,12 +21,12 @@ function toAppError(stderr: string): AppError {
 	return new AppError(Message.INPUT_NOT_FOUND, stderr.trim().slice(0, 200));
 }
 
-export function sendToChat(chatName: string, text: string): Promise<void> {
+export function sendToChat(chatName: string, text: string, dryRun = false): Promise<void> {
 	assertAppInstalled();
 	return new Promise((resolve, reject) => {
 		execFile(
 			'/usr/bin/osascript',
-			['-e', SEND_SCRIPT, chatName, text],
+			['-e', SEND_SCRIPT, chatName, text, dryRun ? '1' : '0'],
 			{ timeout: env.scriptTimeoutMs },
 			(error, _stdout, stderr) => {
 				if (error) return reject(toAppError(stderr || error.message));

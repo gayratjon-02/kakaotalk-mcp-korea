@@ -1,9 +1,11 @@
 // AppleScript driven through System Events. Chat name and text arrive as argv, never interpolated.
 // The script aborts before typing when the opened window title does not match the target chat.
+// With dryRun it stops right after the checks: the chat window is opened and closed, nothing is typed.
 export const SEND_SCRIPT = `
 on run argv
 	set chatName to item 1 of argv
 	set msgText to item 2 of argv
+	set dryRun to ((item 3 of argv) is "1")
 	tell application "KakaoTalk" to activate
 	delay 0.6
 	tell application "System Events"
@@ -67,6 +69,12 @@ on run argv
 				end if
 			end repeat
 			if inputArea is missing value then error "INPUT_NOT_FOUND"
+			if dryRun then
+				try
+					perform action "AXPress" of (value of attribute "AXCloseButton" of chatWin)
+				end try
+				return "DRY_OK"
+			end if
 			perform action "AXRaise" of chatWin
 			set focused of inputArea to true
 			set value of inputArea to msgText
