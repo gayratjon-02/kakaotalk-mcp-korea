@@ -14,14 +14,14 @@ An MCP server and CLI for the KakaoTalk desktop app on macOS. It reads chats fro
 | Device UUID and KakaoTalk `userId` detection | Done |
 | Encrypted database key derivation and read-only open | Done |
 | `setup` command (detect and cache the account) | Done, tested on a real database |
-| MCP read tools (8 of them — see the table below) | Done, tested on a real database |
+| MCP read tools (10 of them — see the table below) | Done, tested on a real database |
 | `kakao_send_message` (requires `confirm: true`) | Implemented, **not yet tested with a real send** |
 
 ## MCP tools
 
 | Tool | What it does |
 | --- | --- |
-| `kakao_list_chats` | List chat rooms (1:1, group, open chat) |
+| `kakao_list_chats` | List chat rooms ordered by last activity, with unread counts and a `kind` field (`direct`, `group`, `open`). `scope` filters to `all`, `direct`, `group` or `open` |
 | `kakao_read_messages` | Read recent messages of a chat |
 | `kakao_search_messages` | Full-text search across messages |
 | `kakao_unread_summary` | Summarize chats with unread messages |
@@ -29,6 +29,8 @@ An MCP server and CLI for the KakaoTalk desktop app on macOS. It reads chats fro
 | `kakao_new_messages` | Long-poll for new messages past a cursor (not push). First call with no cursor returns a starting point; pass the returned cursor back to wait for the next ones, up to 30 seconds |
 | `kakao_extract_links` | Pull the links shared in a chat out of its recent messages |
 | `kakao_export_chat` | Return a chat's messages as a Markdown transcript, oldest first. Nothing is written to disk — the text comes back in the response |
+| `kakao_list_files` | List files shared in a chat, newest first, with an `availability`: `local` (already on this Mac), `download` (still on Kakao's server) or `expired` |
+| `kakao_read_file` | Read a shared file's text by its `messageId` from `kakao_list_files`. Supports pdf, docx/doc/rtf, pptx, xlsx, txt/md/csv/json/html and zip (file listing only). A file not already on the Mac is downloaded while it has not expired, from `https://*.kakaocdn.net` only, capped at `KAKAOTALK_MAX_FILE_MB`, cached under `~/.cache/kakaotalk-mcp-korea/files` |
 | `kakao_send_message` | Send a text. Without `confirm: true` it only previews the chat and the exact text |
 
 Every tool's description warns the agent not to treat message text as instructions.
@@ -38,6 +40,8 @@ Not implemented yet: sending to multiple chats at once, @mentions, sending image
 ## Tested so far
 
 Against a real, personal KakaoTalk database: listing chats, reading and searching messages, the unread summary, contact search, the new-messages cursor stream, link extraction and the Markdown export. `kakao_send_message`'s preview and its chat-not-found error are tested.
+
+File reading was tried against real shared files in a group chat: 5 files read (3 pdf, 1 pptx, 1 docx), an expired file correctly reported `FILE_EXPIRED`, and the download path (for a file not yet on the Mac) was exercised once and verified (size and the PDF `%PDF` signature matched) before the downloaded copy was deleted. `extractText` is additionally covered by generated, non-personal fixture files for docx, pptx, xlsx and pdf.
 
 Sending itself now goes through the native helper described above instead of AppleScript. It has not been tested end to end yet: opening a brand-new chat window and an actual send are both still unverified, so do not treat them as working until this note is updated.
 
@@ -55,6 +59,7 @@ Sending a message drives KakaoTalk through a small native helper (`src/native/ka
 
 - Xcode Command Line Tools (`xcode-select --install`), for the `swiftc` compiler
 - `npm run build` compiles both the TypeScript and the helper; the helper is only rebuilt when `kakao-ax.swift` changes
+- Optional: [poppler](https://poppler.freedesktop.org/) (`brew install poppler`) for `pdftotext`, used by `kakao_read_file` to read PDFs. Without it, PDFs cannot be turned into text; everything else works regardless
 
 ## Install
 
@@ -75,6 +80,8 @@ Copy `.env.example` to `.env` and adjust if needed.
 | `KAKAOTALK_SCRIPT_TIMEOUT_MS` | `15000` | Timeout for UI automation steps |
 | `KAKAOTALK_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` (logs go to stderr) |
 | `KAKAOTALK_LANG` | `en` | Language of error messages: `en`, `ko`, `ru` or `uz` |
+| `KAKAOTALK_MAX_FILE_MB` | `25` | Size cap for a file `kakao_read_file` downloads from Kakao's server |
+| `KAKAOTALK_BLOCKED_CHATS` | *(empty)* | Comma-separated chat/contact names that `kakao_send_message` always refuses. A local `~/.config/kakaotalk-mcp-korea/blocked-chats.json` (a JSON array of names) is read as well, so private names never have to live in `.env` or the repository |
 
 ## How it works
 
@@ -89,6 +96,8 @@ Nothing is written to KakaoTalk's data directory.
 
 - Reading never modifies the database.
 - Sending will require `confirm: true`. The agent must show the exact text to you first, and nothing is sent without your approval.
+- A chat or contact name in `KAKAOTALK_BLOCKED_CHATS` or `blocked-chats.json` can never be sent to, checked against the chat title and against the other person's display name, friend nickname and KakaoTalk nickname (a substring match, so renaming a chat cannot slip past the check as long as the blocked text is still part of some name shown).
+- Downloaded files only ever come from `https://*.kakaocdn.net`, capped at `KAKAOTALK_MAX_FILE_MB`, and are cached under your home directory, not the repository.
 - Automating a consumer messenger may violate its terms of service. Use it at your own risk, preferably on your own account.
 
 ## Contributing

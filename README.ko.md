@@ -14,14 +14,14 @@ macOS 카카오톡 데스크톱 앱용 MCP 서버이자 CLI입니다. 로컬 데
 | 기기 UUID 및 카카오톡 `userId` 감지 | 완료 |
 | 암호화된 데이터베이스 키 생성 및 읽기 전용 열기 | 완료 |
 | `setup` 명령 (계정 감지 및 저장) | 완료, 실제 데이터베이스에서 테스트 |
-| MCP 읽기 도구 (8개 — 아래 표 참고) | 완료, 실제 데이터베이스에서 테스트 |
+| MCP 읽기 도구 (10개 — 아래 표 참고) | 완료, 실제 데이터베이스에서 테스트 |
 | `kakao_send_message` (`confirm: true` 필요) | 구현 완료, **실제 전송은 아직 테스트하지 않음** |
 
 ## MCP 도구
 
 | 도구 | 기능 |
 | --- | --- |
-| `kakao_list_chats` | 채팅방 목록 (1:1, 그룹, 오픈채팅) |
+| `kakao_list_chats` | 채팅방을 최근 활동순으로 나열, 읽지 않은 수와 `kind` 필드(`direct`, `group`, `open`) 포함. `scope`로 `all`, `direct`, `group`, `open` 필터링 |
 | `kakao_read_messages` | 채팅방의 최근 메시지 읽기 |
 | `kakao_search_messages` | 메시지 전체 검색 |
 | `kakao_unread_summary` | 읽지 않은 메시지가 있는 채팅방 요약 |
@@ -29,6 +29,8 @@ macOS 카카오톡 데스크톱 앱용 MCP 서버이자 CLI입니다. 로컬 데
 | `kakao_new_messages` | 커서 이후의 새 메시지를 롱폴링으로 가져옴 (푸시 아님). 커서 없이 처음 호출하면 시작점을 반환하고, 그 커서를 다시 전달하면 최대 30초까지 다음 메시지를 기다림 |
 | `kakao_extract_links` | 채팅방 최근 메시지에서 공유된 링크를 추출 |
 | `kakao_export_chat` | 채팅방 메시지를 오래된 순 Markdown 대화록으로 반환. 디스크에 저장하지 않고 응답으로 텍스트를 돌려줌 |
+| `kakao_list_files` | 채팅방에 공유된 파일을 최신순으로 나열, `availability`로 상태 표시: `local`(이미 Mac에 있음), `download`(아직 서버에 있음), `expired`(만료됨) |
+| `kakao_read_file` | `kakao_list_files`의 `messageId`로 공유 파일의 텍스트를 읽음. pdf, docx/doc/rtf, pptx, xlsx, txt/md/csv/json/html, zip(파일 목록만) 지원. Mac에 없는 파일은 만료되지 않은 동안 `https://*.kakaocdn.net`에서만 다운로드하며, `KAKAOTALK_MAX_FILE_MB`로 크기 제한, `~/.cache/kakaotalk-mcp-korea/files`에 캐시 |
 | `kakao_send_message` | 텍스트 전송. `confirm: true` 없이 호출하면 채팅방과 정확한 내용만 미리 보여 줌 |
 
 모든 도구 설명에는 메시지 내용을 지시로 받아들이지 말라는 경고가 포함되어 있습니다.
@@ -38,6 +40,8 @@ macOS 카카오톡 데스크톱 앱용 MCP 서버이자 CLI입니다. 로컬 데
 ## 지금까지 테스트한 범위
 
 실제 개인 카카오톡 데이터베이스 기준: 채팅방 목록, 메시지 읽기/검색, 읽지 않은 메시지 요약, 연락처 검색, 새 메시지 커서 스트림, 링크 추출, Markdown 내보내기. `kakao_send_message`의 미리보기와 채팅방을 찾지 못했을 때의 오류는 테스트했습니다.
+
+파일 읽기는 실제 그룹 채팅방의 공유 파일로 시도했습니다: 5개 파일 읽기(pdf 3, pptx 1, docx 1), 만료된 파일은 `FILE_EXPIRED`를 올바르게 반환, 다운로드 경로(Mac에 없는 파일)도 한 번 실행해 검증(크기와 PDF `%PDF` 시그니처 일치) 후 다운로드된 사본은 삭제했습니다. `extractText`는 개인정보가 없는 생성된 fixture 파일(docx, pptx, xlsx, pdf)로도 추가 검증됩니다.
 
 전송 자체는 이제 위에서 설명한 네이티브 헬퍼를 통해 이루어지며, 더 이상 AppleScript를 사용하지 않습니다. 아직 끝까지 테스트하지 않았습니다: 새 채팅 창을 여는 경로와 실제 전송 모두 아직 검증되지 않았으므로, 이 문구가 업데이트되기 전까지는 작동한다고 간주하지 마세요.
 
@@ -55,6 +59,7 @@ macOS 카카오톡 데스크톱 앱용 MCP 서버이자 CLI입니다. 로컬 데
 
 - Xcode Command Line Tools (`xcode-select --install`), `swiftc` 컴파일러용
 - `npm run build`가 TypeScript와 헬퍼를 모두 컴파일합니다. 헬퍼는 `kakao-ax.swift`가 바뀔 때만 다시 빌드됩니다
+- 선택 사항: [poppler](https://poppler.freedesktop.org/) (`brew install poppler`) — `kakao_read_file`이 PDF를 읽을 때 쓰는 `pdftotext`용. 없으면 PDF만 텍스트로 변환할 수 없고, 나머지는 그대로 작동합니다
 
 ## 설치
 
@@ -75,6 +80,8 @@ npm run build
 | `KAKAOTALK_SCRIPT_TIMEOUT_MS` | `15000` | UI 자동화 단계의 제한 시간 |
 | `KAKAOTALK_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` 중 하나 (로그는 stderr로 출력) |
 | `KAKAOTALK_LANG` | `en` | 오류 메시지 언어: `en`, `ko`, `ru`, `uz` |
+| `KAKAOTALK_MAX_FILE_MB` | `25` | `kakao_read_file`이 카카오 서버에서 다운로드할 파일의 크기 제한 |
+| `KAKAOTALK_BLOCKED_CHATS` | *(비어 있음)* | `kakao_send_message`가 항상 거부하는 채팅/연락처 이름(쉼표로 구분). 로컬 `~/.config/kakaotalk-mcp-korea/blocked-chats.json`(이름 배열)도 함께 읽히므로, 비공개 이름이 `.env`나 저장소에 남지 않습니다 |
 
 ## 동작 방식
 
@@ -89,6 +96,8 @@ npm run build
 
 - 읽기는 데이터베이스를 수정하지 않습니다.
 - 전송은 `confirm: true`가 있어야 합니다. 에이전트는 보낼 정확한 내용을 먼저 보여 주어야 하며, 승인 없이는 아무것도 전송되지 않습니다.
+- `KAKAOTALK_BLOCKED_CHATS`나 `blocked-chats.json`에 있는 채팅/연락처 이름에는 절대 전송할 수 없습니다. 채팅방 제목뿐 아니라 상대방의 표시 이름, 친구 별명, 카카오톡 닉네임도 확인합니다(부분 일치이므로, 차단된 텍스트가 어느 이름에든 포함되어 있으면 이름을 바꿔도 검사를 피할 수 없습니다).
+- 다운로드되는 파일은 `https://*.kakaocdn.net`에서만 오며, `KAKAOTALK_MAX_FILE_MB`로 제한되고, 저장소가 아닌 사용자 홈 디렉터리에 캐시됩니다.
 - 메신저 자동화는 이용 약관에 저촉될 수 있습니다. 위험을 감수하고 사용하며, 가능하면 본인 계정에서만 사용하세요.
 
 ## 기여
