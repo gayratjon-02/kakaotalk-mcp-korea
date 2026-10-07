@@ -16,6 +16,12 @@ let bundleId = "com.kakao.KakaoTalkMac"
 let mainWindowId = "Main Window"
 let chatTabId = "chatrooms"
 let returnKey: CGKeyCode = 36
+// --no-foreground forbids activating KakaoTalk at all; the run then fails instead of taking focus
+let foregroundAllowed = !CommandLine.arguments.contains("--no-foreground")
+// other chat windows are closed first unless --keep-other-windows is given
+let closeOthers = !CommandLine.arguments.contains("--keep-other-windows")
+// --fresh also closes an empty window of the target chat, so the run exercises the open step (used for testing)
+let freshRun = CommandLine.arguments.contains("--fresh")
 
 func emit(_ object: [String: Any]) {
 	guard let data = try? JSONSerialization.data(withJSONObject: object),
@@ -158,6 +164,11 @@ func labels(in element: AXUIElement, depth: Int = 3) -> [String] {
 	return found
 }
 
+func sendButton(in window: AXUIElement) -> AXUIElement? {
+	let titles: Set<String> = ["Send", "전송", "Отправить"]
+	return children(window).first { role($0) == "AXButton" && titles.contains(title($0) ?? "") }
+}
+
 func chatInput(in window: AXUIElement) -> AXUIElement? {
 	for area in children(window) where role(area) == "AXScrollArea" {
 		let parts = children(area)
@@ -168,6 +179,35 @@ func chatInput(in window: AXUIElement) -> AXUIElement? {
 }
 
 // MARK: - Commands
+
+func closeWindow(_ window: AXUIElement) {
+	var closeButton: CFTypeRef?
+	if AXUIElementCopyAttributeValue(window, "AXCloseButton" as CFString, &closeButton) == .success, let button = closeButton {
+		press(button as! AXUIElement)
+	}
+}
+
+func hasMessageList(_ window: AXUIElement) -> Bool {
+	children(window).contains { area in
+		role(area) == "AXScrollArea" && children(area).contains { role($0) == "AXTable" }
+	}
+}
+
+// Another chat window can hold the key focus and swallow key presses, so other chat windows are closed first.
+// A chat window is one with a message list. When it also has a message input, the input must be empty:
+// unsent text is never discarded. Channel and bot chats have no input, so there is nothing to lose.
+// Windows without a message list, such as the calendar, are left alone.
+func closeOtherChatWindows(_ app: AXUIElement, keeping chat: String) {
+	guard closeOthers else { return }
+	var closed: [AXUIElement] = []
+	for window in windows(of: app) where identifier(window) != mainWindowId && (freshRun || title(window) != chat) {
+		guard hasMessageList(window) else { continue }
+		if let field = chatInput(in: window), !(text(field, "AXValue") ?? "").isEmpty { continue }
+		closeWindow(window)
+		closed.append(window)
+	}
+	_ = waitUntil(2) { !windows(of: app).contains { window in contains(closed, window) } }
+}
 
 func inspect(_ app: AXUIElement) {
 	var rows: [[String: Any]] = []
@@ -180,6 +220,7 @@ func inspect(_ app: AXUIElement) {
 
 func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: String) {
 	let main = ensureMainWindow(app)
+	closeOtherChatWindows(app, keeping: chat)
 	let before = windows(of: app)
 
 	// a chat window the user already has open for this chat is reused and left open
@@ -202,18 +243,28 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 		guard AXUIElementSetAttributeValue(list, "AXSelectedRows" as CFString, [rows[0]] as CFArray) == .success else {
 			fail("CHAT_WINDOW_NOT_OPENED", "row selection was refused")
 		}
-		// `open` goes through LaunchServices like a Dock click, which macOS honours for a background process
-		openApp()
-		_ = waitUntil(3) { runningApp()?.isActive ?? false }
-		// another chat window may be the key window; Return would then land in its input box
-		guard focusWindow(app, main) else { fail("CHAT_WINDOW_NOT_OPENED", "the main window could not be focused") }
-		_ = AXUIElementSetAttributeValue(list, "AXFocused" as CFString, kCFBooleanTrue)
-		Thread.sleep(forTimeInterval: 0.2)
-		pressReturn(pid: pid)
+		func fireOpen() -> Bool {
+			// another chat window may be the key window; Return would then land in its input box
+			guard focusWindow(app, main) else { return false }
+			_ = AXUIElementSetAttributeValue(list, "AXFocused" as CFString, kCFBooleanTrue)
+			Thread.sleep(forTimeInterval: 0.2)
+			pressReturn(pid: pid)
+			return true
+		}
+		func waitForChatWindow(_ seconds: Double) {
+			_ = waitUntil(seconds) {
+				chatWindow = windows(of: app).first { !contains(before, $0) && identifier($0) != mainWindowId }
+				return chatWindow != nil
+			}
+		}
 
-		_ = waitUntil(6) {
-			chatWindow = windows(of: app).first { !contains(before, $0) && identifier($0) != mainWindowId }
-			return chatWindow != nil
+		// first try without activating KakaoTalk, so the user's focus is never touched
+		if fireOpen() { waitForChatWindow(2.5) }
+		if chatWindow == nil && foregroundAllowed {
+			// `open` goes through LaunchServices like a Dock click, which macOS honours for a background process
+			openApp()
+			_ = waitUntil(3) { runningApp()?.isActive ?? false }
+			if fireOpen() { waitForChatWindow(6) }
 		}
 		guard chatWindow != nil else { fail("CHAT_WINDOW_NOT_OPENED") }
 		openedByUs = true
@@ -221,11 +272,7 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 
 	let window = chatWindow!
 	func closeIfOurs() {
-		guard openedByUs else { return }
-		var closeButton: CFTypeRef?
-		if AXUIElementCopyAttributeValue(window, "AXCloseButton" as CFString, &closeButton) == .success, let button = closeButton {
-			press(button as! AXUIElement)
-		}
+		if openedByUs { closeWindow(window) }
 	}
 
 	if title(window) != chat {
@@ -249,19 +296,33 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 		return
 	}
 
-	// never type unless this exact chat window is the focused one
-	guard focusWindow(app, window) else {
-		closeIfOurs()
-		fail("WINDOW_MISMATCH", "the chat window is not the focused window")
-	}
 	_ = AXUIElementSetAttributeValue(field, "AXFocused" as CFString, kCFBooleanTrue)
 	guard AXUIElementSetAttributeValue(field, "AXValue" as CFString, message as CFString) == .success,
 		text(field, "AXValue") == message else {
 		closeIfOurs()
 		fail("INPUT_NOT_FOUND", "the text could not be placed in the input")
 	}
-	Thread.sleep(forTimeInterval: 0.2)
-	pressReturn(pid: pid)
+
+	// Pressing the Send button needs no focus, so the app can stay in the background.
+	// Return is only the fallback, and it is sent only to a window that is confirmed as the focused one.
+	var pressedSend = false
+	if let button = sendButton(in: window), waitUntil(1.5, { (attribute(button, "AXEnabled") as? Bool) ?? false }) {
+		press(button)
+		pressedSend = true
+	}
+	if !pressedSend {
+		guard foregroundAllowed else {
+			closeIfOurs()
+			fail("SEND_UNVERIFIED", "the Send button did not become available")
+		}
+		openApp()
+		_ = waitUntil(3) { runningApp()?.isActive ?? false }
+		guard focusWindow(app, window) else {
+			closeIfOurs()
+			fail("WINDOW_MISMATCH", "the chat window is not the focused window")
+		}
+		pressReturn(pid: pid)
+	}
 
 	// the input empties once the message left; anything else is reported instead of assumed
 	let cleared = waitUntil(4) { (text(field, "AXValue") ?? "").isEmpty }

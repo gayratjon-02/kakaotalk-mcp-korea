@@ -51,7 +51,10 @@ export async function sendToChat(chatName: string, text: string, dryRun = false)
 	assertAppInstalled();
 	if (!existsSync(HELPER)) throw new AppError(Message.HELPER_MISSING);
 
-	const reply = await runHelper(['send', '--chat', chatName, ...(dryRun ? ['--dry-run'] : [])], text);
+	const reply = await runHelper(
+		['send', '--chat', chatName, ...(dryRun ? ['--dry-run'] : []), ...(env.keepOtherWindows ? ['--keep-other-windows'] : [])],
+		text,
+	);
 	if (reply.ok) return;
 	const code = HELPER_ERRORS[reply.code ?? ''];
 	throw code ? new AppError(code) : new AppError(Message.INPUT_NOT_FOUND, reply.code);
