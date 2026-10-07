@@ -39,3 +39,12 @@ export function readAppInfo(): AppInfo {
 export function readLoginId(): string | null {
 	return preference('Email');
 }
+
+// KakaoTalk's own limit, in minutes, for "delete for everyone"; 1440 (one day) when the preference is missing
+export function readDeleteLimitMinutes(): number {
+	for (const dict of readPreferences()) {
+		const value = dict.UserPropertyMessageDeleteLimitTime;
+		if (typeof value === 'number' && value > 0) return value;
+	}
+	return 1440;
+}

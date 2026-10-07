@@ -330,6 +330,42 @@ func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 	return ChatSession(window: window, input: field, openedByUs: openedByUs, closed: tidy.closed, clearedDrafts: tidy.clearedDrafts)
 }
 
+// Puts `message` into the open chat's input and sends it with the Send button (Return is only a foreground fallback).
+// Ends the run with an error when the text cannot be placed or the send is not confirmed. Returns the method used.
+func submit(_ app: AXUIElement, pid: pid_t, session: ChatSession, message: String) -> String {
+	let window = session.window
+	let field = session.input
+	_ = AXUIElementSetAttributeValue(field, "AXFocused" as CFString, kCFBooleanTrue)
+	guard AXUIElementSetAttributeValue(field, "AXValue" as CFString, message as CFString) == .success,
+		text(field, "AXValue") == message else {
+		fail("INPUT_NOT_FOUND", "the text could not be placed in the input")
+	}
+
+	// Pressing the Send button needs no focus, so the app can stay in the background.
+	// Return is only the fallback, and it is sent only to a window that is confirmed as the focused one.
+	var pressedSend = false
+	if let button = sendButton(in: window), waitUntil(1.5, { (attribute(button, "AXEnabled") as? Bool) ?? false }) {
+		press(button)
+		pressedSend = true
+	}
+	if !pressedSend {
+		guard foregroundAllowed else {
+				fail("SEND_UNVERIFIED", "the Send button did not become available")
+		}
+		openApp()
+		_ = waitUntil(3) { runningApp()?.isActive ?? false }
+		guard focusWindow(app, window) else {
+				fail("WINDOW_MISMATCH", "the chat window is not the focused window")
+		}
+		pressReturn(pid: pid)
+	}
+
+	// the input empties once the message left; anything else is reported instead of assumed
+	let cleared = waitUntil(4) { (text(field, "AXValue") ?? "").isEmpty }
+	if !cleared { fail("SEND_UNVERIFIED") }
+	return pressedSend ? "send-button" : "return-key"
+}
+
 func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: String) {
 	let session = openChat(app, pid: pid, chat: chat)
 	let window = session.window
@@ -344,39 +380,9 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 		return
 	}
 
-	_ = AXUIElementSetAttributeValue(field, "AXFocused" as CFString, kCFBooleanTrue)
-	guard AXUIElementSetAttributeValue(field, "AXValue" as CFString, message as CFString) == .success,
-		text(field, "AXValue") == message else {
-		closeIfOurs()
-		fail("INPUT_NOT_FOUND", "the text could not be placed in the input")
-	}
-
-	// Pressing the Send button needs no focus, so the app can stay in the background.
-	// Return is only the fallback, and it is sent only to a window that is confirmed as the focused one.
-	var pressedSend = false
-	if let button = sendButton(in: window), waitUntil(1.5, { (attribute(button, "AXEnabled") as? Bool) ?? false }) {
-		press(button)
-		pressedSend = true
-	}
-	if !pressedSend {
-		guard foregroundAllowed else {
-			closeIfOurs()
-			fail("SEND_UNVERIFIED", "the Send button did not become available")
-		}
-		openApp()
-		_ = waitUntil(3) { runningApp()?.isActive ?? false }
-		guard focusWindow(app, window) else {
-			closeIfOurs()
-			fail("WINDOW_MISMATCH", "the chat window is not the focused window")
-		}
-		pressReturn(pid: pid)
-	}
-
-	// the input empties once the message left; anything else is reported instead of assumed
-	let cleared = waitUntil(4) { (text(field, "AXValue") ?? "").isEmpty }
+	let method = submit(app, pid: pid, session: session, message: message)
 	closeIfOurs()
-	if !cleared { fail("SEND_UNVERIFIED") }
-	succeed(["ok": true, "sent": true, "method": pressedSend ? "send-button" : "return-key", "reusedWindow": !openedByUs, "closedWindows": tidy.closed, "clearedDrafts": tidy.clearedDrafts])
+	succeed(["ok": true, "sent": true, "method": method, "reusedWindow": !openedByUs, "closedWindows": tidy.closed, "clearedDrafts": tidy.clearedDrafts])
 }
 
 // MARK: - Message menu probe (read only)
@@ -405,6 +411,23 @@ func descendants(_ element: AXUIElement, depth: Int) -> [AXUIElement] {
 	return children(element).flatMap { [$0] + descendants($0, depth: depth - 1) }
 }
 
+// Opens a message's context menu and returns it only when it really is that menu: it must hold one of the expected
+// items, so the system menu bar can never be mistaken for it. Waits for the menu instead of sleeping.
+func openContextMenu(app: AXUIElement, window: AXUIElement, cell: AXUIElement, expecting items: Set<String>) -> AXUIElement? {
+	_ = AXUIElementPerformAction(cell, "AXShowMenu" as CFString)
+	var found: AXUIElement?
+	_ = waitUntil(2.5) {
+		for root in [cell, window, app] {
+			found = ([root] + descendants(root, depth: 8)).first { candidate in
+				role(candidate) == "AXMenu" && children(candidate).contains { role($0) == "AXMenuItem" && items.contains(title($0) ?? "") }
+			}
+			if found != nil { return true }
+		}
+		return false
+	}
+	return found
+}
+
 // Prints the structure of the row that holds an exact message text and the titles of its context menu. Never clicks an item.
 func probeMenu(_ app: AXUIElement, pid: pid_t, chat: String, match: String, press item: String?) {
 	let session = openChat(app, pid: pid, chat: chat)
@@ -425,17 +448,10 @@ func probeMenu(_ app: AXUIElement, pid: pid_t, chat: String, match: String, pres
 		cells.append(["role": role(cell) ?? "?", "actions": actionNames(cell), "kids": children(cell).map { role($0) ?? "?" }])
 	}
 	report["cells"] = cells
-	// try the first element in the row that offers a context menu
+	// the context menu belongs to the row's cell
 	let candidates = [row] + descendants(row, depth: 4)
 	if let target = candidates.first(where: { actionNames($0).contains("AXShowMenu") }) {
-		_ = AXUIElementPerformAction(target, "AXShowMenu" as CFString)
-		Thread.sleep(forTimeInterval: 0.6)
-		var menu: AXUIElement?
-		let roots = [target, row, session.window, app]
-		for root in roots {
-			menu = ([root] + descendants(root, depth: 6)).first { role($0) == "AXMenu" }
-			if menu != nil { break }
-		}
+		let menu = openContextMenu(app: app, window: session.window, cell: target, expecting: ["Copy", "Reply", "Delete for Everyone", "Delete only for me"])
 		if let menu = menu {
 			report["menuItems"] = children(menu).compactMap { role($0) == "AXMenuItem" ? (title($0) ?? "") : nil }
 			if let name = item, let entry = children(menu).first(where: { role($0) == "AXMenuItem" && title($0) == name }) {
@@ -491,6 +507,86 @@ func probeMenu(_ app: AXUIElement, pid: pid_t, chat: String, match: String, pres
 	succeed(["ok": true, "probe": report])
 }
 
+// MARK: - Message actions (delete, reply, react)
+
+let menuTitles: [String: String] = [
+	"delete-everyone": "Delete for Everyone",
+	"delete-me": "Delete only for me",
+	"reply": "Reply",
+	"react": "Reactions",
+]
+
+func exactTexts(in element: AXUIElement) -> [String] {
+	([element] + descendants(element, depth: 6)).compactMap { item in
+		["AXTextArea", "AXStaticText"].contains(role(item) ?? "") ? text(item, "AXValue") : nil
+	}
+}
+
+func emojiButtons(app: AXUIElement, window: AXUIElement) -> [AXUIElement] {
+	for root in [window, app] {
+		for popover in ([root] + descendants(root, depth: 8)).filter({ role($0) == "AXPopover" }) {
+			let buttons = descendants(popover, depth: 8).filter { role($0) == "AXButton" && text($0, "AXDescription") == "emoji" }
+			if !buttons.isEmpty { return buttons }
+		}
+	}
+	return []
+}
+
+// Runs one action from a message's context menu. The message is found by its exact text, counted from the newest
+// (nth = 0 is the latest copy), so an identical older message is never touched by mistake.
+func messageAction(_ app: AXUIElement, pid: pid_t, chat: String, match: String, nth: Int, action: String, replyText: String?, reactionIndex: Int, dryRun: Bool) {
+	guard action == "delete-auto" || menuTitles[action] != nil else { fail("USAGE", "unknown action") }
+	if action == "reply" && !dryRun && (replyText ?? "").isEmpty { fail("USAGE", "reply needs --text") }
+	let session = openChat(app, pid: pid, chat: chat)
+	// a freshly opened window fills its message list a moment later, so wait for the message instead of reading once
+	var rows: [AXUIElement] = []
+	_ = waitUntil(5) {
+		guard let table = messageTable(in: session.window) else { return false }
+		rows = children(table).filter { role($0) == "AXRow" && exactTexts(in: $0).contains(match) }
+		return rows.count > nth
+	}
+	guard rows.count > nth else { fail("MESSAGE_NOT_VISIBLE", "found \(rows.count) matching rows") }
+	let row = rows[rows.count - 1 - nth]
+	guard let cell = ([row] + descendants(row, depth: 4)).first(where: { actionNames($0).contains("AXShowMenu") }) else { fail("MENU_NOT_FOUND") }
+	guard let menu = openContextMenu(app: app, window: session.window, cell: cell, expecting: Set(menuTitles.values).union(["Copy"])) else { fail("MENU_NOT_FOUND") }
+	let available = children(menu).compactMap { role($0) == "AXMenuItem" ? title($0) : nil }.filter { !$0.isEmpty }
+	// delete-auto: "Delete for Everyone" only exists for recent messages of your own, otherwise only "Delete only for me" does
+	let wanted = action == "delete-auto"
+		? (available.contains(menuTitles["delete-everyone"]!) ? menuTitles["delete-everyone"]! : menuTitles["delete-me"]!)
+		: menuTitles[action]!
+	guard let item = children(menu).first(where: { role($0) == "AXMenuItem" && title($0) == wanted }) else {
+		_ = AXUIElementPerformAction(menu, "AXCancel" as CFString)
+		fail("MENU_ITEM_UNAVAILABLE", wanted)
+	}
+	if dryRun {
+		_ = AXUIElementPerformAction(menu, "AXCancel" as CFString)
+		succeed(["ok": true, "dryRun": true, "action": action, "wouldPress": wanted, "available": available])
+		return
+	}
+
+	press(item)
+	switch action {
+	case "delete-everyone", "delete-me", "delete-auto":
+		// KakaoTalk deletes right away, without a confirmation dialog
+		Thread.sleep(forTimeInterval: 1.2)
+		succeed(["ok": true, "action": action, "applied": wanted == menuTitles["delete-everyone"] ? "everyone" : "me"])
+	case "reply":
+		_ = waitUntil(2) { descendants(session.window, depth: 8).contains { role($0) == "AXButton" && text($0, "AXDescription") == "Close" } }
+		let method = submit(app, pid: pid, session: session, message: replyText ?? "")
+		succeed(["ok": true, "action": action, "method": method])
+	default:
+		var emoji: [AXUIElement] = []
+		_ = waitUntil(2) {
+			emoji = emojiButtons(app: app, window: session.window)
+			return !emoji.isEmpty
+		}
+		guard reactionIndex >= 0, reactionIndex < emoji.count else { fail("REACTION_NOT_FOUND", "the picker offers \(emoji.count) reactions") }
+		press(emoji[reactionIndex])
+		Thread.sleep(forTimeInterval: 1.0)
+		succeed(["ok": true, "action": action, "reactionIndex": reactionIndex, "offered": emoji.count])
+	}
+}
+
 // MARK: - Entry point
 
 guard AXIsProcessTrusted() else { fail("ACCESSIBILITY_DENIED") }
@@ -514,6 +610,17 @@ case "probe-menu":
 		let matchFlag = arguments.firstIndex(of: "--match"), matchFlag + 1 < arguments.count else { fail("USAGE") }
 	let pressFlag = arguments.firstIndex(of: "--press")
 	probeMenu(appElement, pid: process.processIdentifier, chat: arguments[flag + 1], match: arguments[matchFlag + 1], press: pressFlag.flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil })
+case "message-action":
+	func value(_ name: String) -> String? {
+		guard let index = arguments.firstIndex(of: name), index + 1 < arguments.count else { return nil }
+		return arguments[index + 1]
+	}
+	// the message text and the reply text arrive as JSON on stdin so they never show up in the process list
+	let payload = (try? JSONSerialization.jsonObject(with: FileHandle.standardInput.readDataToEndOfFile())) as? [String: Any] ?? [:]
+	guard let chat = value("--chat"), let match = payload["match"] as? String, !match.isEmpty, let action = value("--do") else { fail("USAGE") }
+	messageAction(
+		appElement, pid: process.processIdentifier, chat: chat, match: match, nth: Int(value("--nth") ?? "0") ?? 0, action: action,
+		replyText: payload["text"] as? String, reactionIndex: Int(value("--reaction-index") ?? "0") ?? 0, dryRun: arguments.contains("--dry-run"))
 case "send":
 	guard let flag = arguments.firstIndex(of: "--chat"), flag + 1 < arguments.count else { fail("USAGE") }
 	let chat = arguments[flag + 1]
