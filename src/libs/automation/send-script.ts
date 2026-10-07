@@ -1,7 +1,9 @@
 // AppleScript driven through System Events. Chat name and text arrive as argv, never interpolated.
+// A row matches when one of its labels equals the chat name exactly (label ids differ between app versions).
 // Rows and the opened window must match the chat name exactly: a partial match such as "Anna" for "Anna Lee"
 // could open the wrong person, so it fails instead. The script aborts before typing on any mismatch.
 // With dryRun it stops right after the checks: the chat window is opened and closed, nothing is typed.
+// Elements are found with plain loops: a whose-filter throws on elements without an AXIdentifier and try would hide it.
 // Windows are addressed by index and re-resolved after every close, because closing shifts indexes.
 export const SEND_SCRIPT = `
 on run argv
@@ -25,9 +27,11 @@ on run argv
 				if (value of attribute "AXIdentifier" of window i) is "Main Window" then set mainWin to window i
 			end repeat
 			if mainWin is missing value then error "NO_MAIN_WINDOW"
-			try
-				perform action "AXPress" of (first UI element of mainWin whose value of attribute "AXIdentifier" is "chatrooms")
-			end try
+			repeat with el in UI elements of mainWin
+				try
+					if (value of attribute "AXIdentifier" of el) is "chatrooms" then perform action "AXPress" of el
+				end try
+			end repeat
 			delay 0.6
 			set theTable to missing value
 			repeat with sa in scroll areas of mainWin
@@ -37,8 +41,13 @@ on run argv
 			set exactRows to {}
 			repeat with r in rows of theTable
 				try
-					set rowName to value of (first static text of UI element 1 of r whose value of attribute "AXIdentifier" is "_NS:18")
-					if rowName is chatName then set end of exactRows to contents of r
+					set matched to false
+					repeat with labelItem in static texts of UI element 1 of r
+						try
+							if (value of labelItem) is chatName then set matched to true
+						end try
+					end repeat
+					if matched then set end of exactRows to contents of r
 				end try
 			end repeat
 			if (count of exactRows) is 1 then
