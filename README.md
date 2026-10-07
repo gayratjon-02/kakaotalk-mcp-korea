@@ -110,26 +110,30 @@ It also tries to stay out of your way. By default, before opening a chat the hel
 
 ## 📦 Install
 
-Not published to npm yet — install from source:
+From npm (macOS only):
+
+```bash
+npm i -g kakaotalk-mcp-korea
+kakaotalk-mcp-korea setup
+```
+
+Or without installing it, run each command through `npx`, for example `npx -y kakaotalk-mcp-korea setup`.
+
+The Swift helper compiles automatically right after the install. A missing compiler only prints a hint and does not fail the install: reading chats still works, while sending and window actions do not until you install the Xcode Command Line Tools (`xcode-select --install`) and run `npm rebuild kakaotalk-mcp-korea`.
+
+`setup` detects the account once and checks that the KakaoTalk window can be reached in the background (required for every window action — see "Build requirements").
+
+From source, for development:
 
 ```bash
 git clone https://github.com/gayratjon-02/kakaotalk-mcp-korea.git
 cd kakaotalk-mcp-korea
 npm ci
 npm run build
-```
-
-`npm run build` compiles the TypeScript and also compiles the native Swift helper (see "Build requirements"). Building from source needs the Swift compiler to be present — if Xcode Command Line Tools are missing, the build stops and names the exact command to install them.
-
-Once this package is published, `npx kakaotalk-mcp-korea` or `npm i -g kakaotalk-mcp-korea` will work the same way, except the helper then compiles automatically after install instead of failing the install outright: a missing compiler there only prints a hint (reading chats still works; sending and window actions do not, until you install the Command Line Tools and run `npm rebuild kakaotalk-mcp-korea`).
-
-Detect the account once and check that the KakaoTalk window can be reached in the background (required for every window action — see "Build requirements"):
-
-```bash
 node dist/index.js setup
 ```
 
-(after publishing, this will be `npx kakaotalk-mcp-korea setup`.)
+`npm run build` compiles the TypeScript and also the native Swift helper (see "Build requirements"). Building from source needs the Swift compiler to be present — if the Xcode Command Line Tools are missing, the build stops and names the exact command to install them.
 
 ## ⚙️ Configuration
 
@@ -148,7 +152,7 @@ Copy `.env.example` to `.env` and adjust if needed.
 
 ## 🔌 Using it from an MCP client
 
-Point your client at `node`, with the absolute path to `dist/index.js` after the clone from "Install", as the command. For Claude Desktop, add this to `claude_desktop_config.json`:
+From a source clone, point your client at `node`, with the absolute path to `dist/index.js` from the clone in "Install", as the command (with the npm package use the `npx` configuration further down). For Claude Desktop, add this to `claude_desktop_config.json`:
 
 ```json
 {
@@ -174,7 +178,7 @@ For Claude Code, either run `claude mcp add kakaotalk -- node /absolute/path/to/
 }
 ```
 
-Once this package is published to npm, both configs can use `npx` instead, with no path to keep up to date:
+With the npm package, both configs can use `npx` instead, with no path to keep up to date:
 
 ```json
 {

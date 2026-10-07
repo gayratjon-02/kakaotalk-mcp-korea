@@ -110,26 +110,30 @@ MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 �
 
 ## 📦 설치
 
-아직 npm에 배포되지 않았습니다 — 소스에서 설치합니다:
+npm에서 설치합니다(macOS 전용):
+
+```bash
+npm i -g kakaotalk-mcp-korea
+kakaotalk-mcp-korea setup
+```
+
+설치하지 않고 `npx`로 각 명령을 실행할 수도 있습니다. 예: `npx -y kakaotalk-mcp-korea setup`.
+
+네이티브 Swift 헬퍼는 설치 직후 자동으로 컴파일됩니다. 컴파일러가 없으면 설치를 실패시키지 않고 힌트만 출력합니다: 채팅 읽기는 그대로 되고, Xcode Command Line Tools(`xcode-select --install`)를 설치하고 `npm rebuild kakaotalk-mcp-korea`를 실행하기 전까지는 전송과 창 동작만 안 됩니다.
+
+`setup`은 계정을 한 번 감지하고 카카오톡 창을 백그라운드에서 접근할 수 있는지 확인합니다(모든 창 동작에 필요 — "빌드 요구 사항" 참고).
+
+개발용 소스 설치:
 
 ```bash
 git clone https://github.com/gayratjon-02/kakaotalk-mcp-korea.git
 cd kakaotalk-mcp-korea
 npm ci
 npm run build
-```
-
-`npm run build`는 TypeScript와 네이티브 Swift 헬퍼를 함께 컴파일합니다("빌드 요구 사항" 참고). 소스에서 빌드할 때는 Swift 컴파일러가 있어야 합니다 — Xcode Command Line Tools가 없으면 빌드가 멈추고 설치할 정확한 명령을 알려줍니다.
-
-이 패키지가 배포되면 `npx kakaotalk-mcp-korea`나 `npm i -g kakaotalk-mcp-korea`도 같은 방식으로 동작하지만, 그때는 헬퍼가 설치 자체를 실패시키지 않고 설치 후 자동으로 컴파일을 시도합니다: 컴파일러가 없으면 힌트만 출력합니다(채팅 읽기는 그대로 되고, Xcode Command Line Tools를 설치하고 `npm rebuild kakaotalk-mcp-korea`를 실행하기 전까지는 전송과 창 동작만 안 됩니다).
-
-계정을 한 번 감지하고 카카오톡 창을 백그라운드에서 접근할 수 있는지 확인합니다(모든 창 동작에 필요 — "빌드 요구 사항" 참고):
-
-```bash
 node dist/index.js setup
 ```
 
-(배포 후에는 `npx kakaotalk-mcp-korea setup`이 됩니다.)
+`npm run build`는 TypeScript와 네이티브 Swift 헬퍼를 함께 컴파일합니다("빌드 요구 사항" 참고). 소스에서 빌드할 때는 Swift 컴파일러가 있어야 합니다 — Xcode Command Line Tools가 없으면 빌드가 멈추고 설치할 정확한 명령을 알려줍니다.
 
 ## ⚙️ 설정
 
@@ -148,7 +152,7 @@ node dist/index.js setup
 
 ## 🔌 MCP 클라이언트에서 사용하기
 
-클라이언트의 명령으로 `node`와, "설치"에서 clone한 뒤의 `dist/index.js` 절대 경로를 지정합니다. Claude Desktop이라면 `claude_desktop_config.json`에 다음을 추가합니다:
+소스 clone을 쓰는 경우, 클라이언트의 명령으로 `node`와 "설치"에서 clone한 `dist/index.js`의 절대 경로를 지정합니다(npm 패키지를 쓴다면 아래의 `npx` 설정을 사용하세요). Claude Desktop이라면 `claude_desktop_config.json`에 다음을 추가합니다:
 
 ```json
 {
@@ -174,7 +178,7 @@ Claude Code라면 `claude mcp add kakaotalk -- node /absolute/path/to/kakaotalk-
 }
 ```
 
-이 패키지가 npm에 배포되면, 두 설정 모두 경로를 따로 관리할 필요 없이 `npx`를 쓸 수 있습니다:
+npm 패키지를 쓰면, 두 설정 모두 경로를 따로 관리할 필요 없이 `npx`를 쓸 수 있습니다:
 
 ```json
 {
