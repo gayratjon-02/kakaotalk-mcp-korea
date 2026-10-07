@@ -5,6 +5,7 @@ function stamp(iso: string): string {
 }
 
 function body(message: ChatMessage): string {
+	if (message.deleted) return '[deleted]';
 	if (message.kind === 'text' || message.kind === 'reply') return message.text ?? '';
 	return `[${message.kind}]${message.text ? ` ${message.text}` : ''}`;
 }

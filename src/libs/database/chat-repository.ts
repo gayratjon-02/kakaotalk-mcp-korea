@@ -5,6 +5,7 @@ import type { Chat, ChatKind, ChatScope } from '../type/chat.type.js';
 import type { ChatMessage } from '../type/message.type.js';
 import type { UnreadChat } from '../type/unread.type.js';
 import { getDb } from './connection.js';
+import { sourceLogId } from './message-verify.js';
 
 const MAX_LIMIT = 500;
 
@@ -21,10 +22,29 @@ const SENDER_NAME = `COALESCE(
 	(SELECT COALESCE(u.displayName, u.friendNickName, u.nickName)
 		FROM NTUser u WHERE u.userId = m.authorId AND u.linkId = 0 LIMIT 1))`;
 
+// A deleted-for-everyone (unsent) message gets its own companion system row (type 0, status 5)
+// whose body is {"feedType":14,"logId":<this message>,"hidden":true}. Verified against a real
+// database: every such companion row's logId matched a message, with no false positives.
+//
+// The message's own `type` also gains a +16384 flag bit when this happens, but that same bit is
+// reused for unrelated things too (a "long text" message, and a "delete for me only" — a purely
+// local, per-viewer hide that leaves nothing for other members, so it is not what this field
+// means). The feed-row check below is the one way to tell "the sender recalled this" apart from
+// those. json_extract keeps the 19-digit ids inside SQLite's own integer domain, avoiding the
+// precision loss a JS-side JSON.parse of the same id would cause.
+const DELETED_BY_SENDER = `EXISTS (
+	SELECT 1 FROM NTChatMessage f
+	WHERE f.type = 0 AND f.status = 5
+		AND json_extract(f.message, '$.feedType') = 14
+		AND json_extract(f.message, '$.hidden') = 1
+		AND json_extract(f.message, '$.logId') = m.logId
+)`;
+
 const MESSAGE_SELECT = `
 	SELECT CAST(m.logId AS TEXT) AS id, CAST(m.chatId AS TEXT) AS chatId,
 		CAST(m.authorId AS TEXT) AS senderId, ${SENDER_NAME} AS senderName,
-		m.message AS text, m.type AS kind, m.sentAt AS sentAt
+		m.message AS text, m.type AS kind, m.sentAt AS sentAt, m.attachment AS attachment,
+		${DELETED_BY_SENDER} AS deleted
 	FROM NTChatMessage m`;
 
 type MessageRow = {
@@ -35,7 +55,24 @@ type MessageRow = {
 	text: string | null;
 	kind: number;
 	sentAt: number;
+	attachment: string | null;
+	deleted: number;
 };
+
+const REPLY_KIND = 'reply';
+const REPLY_PREVIEW_MAX = 80;
+
+// the quoted text comes back as JSON from json_extract already decoded, so only length is capped here
+function replyPreview(attachment: string | null): string | null {
+	const match = attachment?.match(/"src_message"\s*:\s*"((?:\\.|[^"\\])*)"/);
+	if (!match) return null;
+	try {
+		const text = JSON.parse(`"${match[1]}"`) as string;
+		return text.length > REPLY_PREVIEW_MAX ? `${text.slice(0, REPLY_PREVIEW_MAX)}…` : text;
+	} catch {
+		return null;
+	}
+}
 
 // open chats carry a linkId; type 1 and rooms with more than two members are groups
 function chatKind(linkId: number, type: number, members: number): ChatKind {
@@ -60,16 +97,25 @@ function myUserId(): string {
 }
 
 function toMessage(row: MessageRow, me: string): ChatMessage {
-	return {
+	const kind = kindLabel(row.kind);
+	const deleted = Boolean(row.deleted);
+	const message: ChatMessage = {
 		id: row.id,
 		chatId: row.chatId,
 		senderId: row.senderId,
 		senderName: row.senderName,
 		fromMe: row.senderId === me,
-		kind: kindLabel(row.kind),
-		text: row.text,
+		kind,
+		deleted,
+		// the sender recalled this message; its text is withheld rather than shown after the fact
+		text: deleted ? null : row.text,
 		sentAt: iso(row.sentAt),
 	};
+	if (kind === REPLY_KIND) {
+		const messageId = sourceLogId(row.attachment);
+		if (messageId) message.replyTo = { messageId, preview: replyPreview(row.attachment) };
+	}
+	return message;
 }
 
 export function listChats(limit = 50, scope: ChatScope = 'all'): Chat[] {
