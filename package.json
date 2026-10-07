@@ -55,7 +55,7 @@
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.20.5",
     "@types/plist": "^3.0.5",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "repository": {
     "type": "git",
