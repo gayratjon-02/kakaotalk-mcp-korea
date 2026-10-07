@@ -3,10 +3,10 @@
 한국어 · [English](./README.md)
 
 ![platform](https://img.shields.io/badge/platform-macOS%2013%2B-000000?logo=apple&logoColor=white)
-![node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
+![node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)
 ![native helper](https://img.shields.io/badge/native%20helper-Swift-F05138?logo=swift&logoColor=white)
-![mcp tools](https://img.shields.io/badge/MCP%20tools-18-6E56CF)
-![tests](https://img.shields.io/badge/tests-77%20passing-2EA043)
+![mcp tools](https://img.shields.io/badge/MCP%20tools-20-6E56CF)
+[![CI](https://github.com/gayratjon-02/kakaotalk-mcp-korea/actions/workflows/ci.yml/badge.svg)](https://github.com/gayratjon-02/kakaotalk-mcp-korea/actions/workflows/ci.yml)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
 Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP 클라이언트에서 macOS 카카오톡을 읽고 보낼 수 있게 해주는 MCP 서버이자 CLI입니다: 채팅, 메시지, 파일, 연락처, 그리고 연결된 계정 본인의 프로필까지.
@@ -14,18 +14,18 @@ Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP �
 > 🦋 **비공식 프로젝트입니다.** 카카오와 제휴하거나 승인받은 프로젝트가 아닙니다. 사용자의 Mac에 설치된 앱과 로컬 데이터만 사용하며, 카카오 서버를 직접 호출하지 않습니다.
 
 <p align="center">
-  <img src="docs/assets/architecture.svg" alt="MCP 클라이언트가 MCP로 kakaotalk-mcp-korea와 통신합니다. 로컬 SQLite 데이터베이스는 직접 읽고, 전송은 Swift 손쉬운 사용 헬퍼(kakao-ax)를 통해 카카오톡 앱을 제어합니다." width="640">
+  <img src="https://raw.githubusercontent.com/gayratjon-02/kakaotalk-mcp-korea/main/docs/assets/architecture.svg" alt="MCP 클라이언트가 MCP로 kakaotalk-mcp-korea와 통신합니다. 로컬 SQLite 데이터베이스는 직접 읽고, 전송은 Swift 손쉬운 사용 헬퍼(kakao-ax)를 통해 카카오톡 앱을 제어합니다." width="640">
 </p>
 
 ## ✨ 주요 특징
 
 |  |  |
 | --- | --- |
-| 📖 **모든 것을 읽음** | 채팅, 메시지, 검색, 읽지 않은 메시지 요약, 링크, 공유 파일(pdf/docx/pptx/xlsx…), 연락처, 본인 계정 프로필 |
+| 📖 **모든 것을 읽음** | 채팅, 메시지, 검색, 읽지 않은 메시지 요약, 링크, 공유 파일(pdf/docx/pptx/xlsx…), 사진과 앨범, 연락처, 본인 계정 프로필 |
 | ✉️ **안전한 전송** | 모든 전송은 먼저 미리보기를 거치며, `confirm: true` 없이는 아무것도 나가지 않음 |
 | 🙈 **포커스 최소화** | 가능하면 백그라운드로 전송 — 실제 테스트로 현재 작업 중인 앱을 방해하지 않음을 확인함 |
 | 🔒 **프라이버시 우선** | 본인 외 그 누구의 전화번호도 노출되지 않음; 다운로드는 호스트 제한과 용량 제한이 있음 |
-| 🧪 **검증된 테스트** | 단위 테스트 77개 + 실제 데이터베이스, 실제 전송, 실제 답장/반응/삭제 검증 — "지금까지 테스트한 범위"에 정직하게 기록 |
+| 🧪 **검증된 테스트** | 단위 테스트 83개 + 실제 데이터베이스, 실제 전송, 실제 답장/반응/삭제 검증 — "지금까지 테스트한 범위"에 정직하게 기록 |
 | 🌐 **이중 언어** | 이 README와 모든 오류 메시지가 한국어와 영어(그리고 러시아어/우즈베크어)로 제공됨 |
 
 ## 📊 진행 상황
@@ -37,7 +37,7 @@ Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP �
 | ✅ | 암호화된 데이터베이스 키 생성 및 읽기 전용 열기 | 완료 |
 | ✅ | `setup` 명령 (계정 감지 및 저장) | 완료, 실제 데이터베이스에서 테스트 |
 | ✅ | MCP 읽기 도구 (10개 — 아래 표 참고) | 완료, 실제 데이터베이스에서 테스트 |
-| 🧪 | `kakao_account_info`, `kakao_contact_profile`, `kakao_profile_image` | 완료, 생성된 fixture로 단위 테스트함; 실제 계정으로 별도 검증은 아직 안 함 |
+| 🧪 | `kakao_account_info`, `kakao_contact_profile`, `kakao_profile_image`, `kakao_list_images`, `kakao_get_image` | 완료, 생성된 fixture로 단위 테스트함; 실제 계정으로 별도 검증은 아직 안 함 |
 | ✅ | `kakao_send_message` (`confirm: true` 필요) | 완료, **실제 전송으로 확인됨** |
 | ✅ | `kakao_delete_message`, `kakao_reply_message`, `kakao_react_message` (각각 `confirm: true` 필요) | 완료, **실제 채팅방에서 직접 확인됨** |
 | 🧪 | `kakao_edit_message` (`confirm: true` 필요) | 구현됨, **아직 실제로 테스트 안 함** |
@@ -56,6 +56,8 @@ Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP �
 | 📝 | `kakao_export_chat` | 채팅방 메시지를 오래된 순 Markdown 대화록으로 반환. 회수된 메시지는 `[deleted]`로 표시됨. 디스크에 저장하지 않고 응답으로 텍스트를 돌려줌 |
 | 🗂️ | `kakao_list_files` | 채팅방에 공유된 파일을 최신순으로 나열, `availability`로 상태 표시: `local`(이미 Mac에 있음), `download`(아직 서버에 있음), `expired`(만료됨) |
 | 📄 | `kakao_read_file` | `kakao_list_files`의 `messageId`로 공유 파일의 텍스트를 읽음. pdf, docx/doc/rtf, pptx, xlsx, txt/md/csv/json/html, zip(파일 목록만) 지원. Mac에 없는 파일은 만료되지 않은 동안 `https://*.kakaocdn.net`에서만 다운로드하며, `KAKAOTALK_MAX_FILE_MB`로 크기 제한, `~/.cache/kakaotalk-mcp-korea/files`에 캐시 |
+| 📸 | `kakao_list_images` | 채팅방에 공유된 사진과 앨범을 최신순으로 나열, `availability`로 상태 표시: `local`, `download`(아직 서버에 있음), `expired`(만료됨). 앨범은 여러 사진을 인덱스로 하나씩 가져옵니다 |
+| 🏞️ | `kakao_get_image` | `kakao_list_images`의 사진 하나를 (링크가 아닌) 실제 이미지로 반환, `messageId`로 지정; `index`는 앨범 안의 사진을 선택. `thumbnail: true`면 작은 미리보기를 대신 반환. Mac에 없는 사진은 만료되지 않은 동안 카카오 CDN에서 다운로드하며, 8 MB로 제한 |
 | 🪪 | `kakao_account_info` | 연결된 계정 전체 개요: 자신의 프로필(이름, 상태 메시지, 사진 링크, 로그인 아이디, 전화번호, 오픈채팅 프로필), 앱 버전, 종류별 채팅 수(읽지 않은 수 포함)와 폴더, 연락처 수, 메시지/파일 총계, 캘린더 수 |
 | 🧑 | `kakao_contact_profile` | 이름이나 사용자 ID로 연락처 조회: 이름, 상태 메시지, 사진 링크, 즐겨찾기/숨김 여부. 전화번호는 절대 반환하지 않음 |
 | 🖼️ | `kakao_profile_image` | 프로필 사진을 (링크가 아닌) 실제 이미지로 반환. `userId`가 없으면 연결된 계정 본인 사진. 카카오 CDN에서만 다운로드, 5 MB 제한 |
@@ -69,7 +71,7 @@ Claude Code, Claude Desktop, 또는 직접 만든 에이전트 등 모든 MCP �
 
 MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 짧은 계정 요약(이름, 앱 버전, 채팅/연락처/메시지 수)을 보내므로, 모델은 도구를 호출하지 않아도 기본 정보를 이미 알고 시작합니다. 로그인 아이디와 전화번호는 이 요약에서 의도적으로 제외되며, `kakao_account_info`에서만, 그것도 연결된 계정 본인에 대해서만 반환됩니다("안전 원칙" 참고).
 
-아직 구현되지 않음: 추가한 반응 제거, 채팅방에 공유된 사진이나 사진 앨범 읽기(현재는 카카오의 "파일" 종류만 목록에 나타남 — 이 작업 중 확인한 실제 계정에는 `kakao_list_files`가 전혀 보지 못하는 사진 메시지 127개와 사진 앨범 26개가 있었습니다), 여러 채팅방에 한 번에 전송, @멘션, 이미지 전송, 그룹 멤버 관리. 이들은 현재 파일 경로를 넘어서는 새로운 메시지 읽기/전송 로직이거나 카카오톡 자체 통신 프로토콜 역분석이 필요하므로, 현재는 일정이 정해져 있지 않습니다.
+아직 구현되지 않음: 추가한 반응 제거, 여러 채팅방에 한 번에 전송, @멘션, 이미지 전송, 그룹 멤버 관리. 이들은 현재 파일 경로를 넘어서는 새로운 메시지 읽기/전송 로직이거나 카카오톡 자체 통신 프로토콜 역분석이 필요하므로, 현재는 일정이 정해져 있지 않습니다.
 
 ## ✅ 지금까지 테스트한 범위
 
@@ -79,6 +81,8 @@ MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 �
 
 `kakao_account_info`와 `kakao_contact_profile`의 내부 쿼리(채팅/연락처/메시지/파일/캘린더 수, 폴더 이름, 연락처 검색과 정렬, 전화번호가 `kakao_contact_profile`로 절대 새어나가지 않음)는 실제 계정 데이터가 아니라 생성된 메모리 데이터베이스로 단위 테스트되어 있습니다. fixture로 만들 수 없는 실제 프로필의 유일한 부분인 — 이 기기 자체 설정에서 읽는 카카오톡 로그인 아이디 — 는 직접 검증하는 대신 별도의 순수 함수 테스트(`phoneFromLoginId`)로 다룹니다.
 
+`kakao_list_images`와 `kakao_get_image`는 단위 테스트로 검증됩니다: 파일 자체의 첫 바이트로 이미지 종류 판별(png/jpeg/gif/webp, 그리고 이미지라고만 주장하는 파일), 범위를 벗어난 앨범 인덱스, 로컬 사본이 없는 만료된 사진, 요청 전에 거부되는 다른 호스트의 url, 로컬 사본/다운로드/미리보기로 넘어가는 순서. 실제 계정의 실제 사진과 앨범으로는 아직 별도로 검증하지 않았습니다.
+
 전송 자체는 이제 위에서 설명한 네이티브 헬퍼를 통해 이루어지며, 더 이상 AppleScript를 사용하지 않습니다. `dryRun`(채팅 창을 열고 입력 없이 확인만 함)은 실제로 6/6회 성공했으며, 관련 없는 다른 채팅 창이 열려 있는 상태에서도 창 일치 검사가 잘못된 창을 올바르게 거부했습니다. 백그라운드 포커스 방식(다른 채팅 창을 닫은 뒤, 메인 창에 직접 포커스를 주고 카카오톡을 활성화하지 않은 채 그 프로세스에 Return을 보내는 방식)으로는 3/3회 모두 테스트 중이던 앱에 포커스가 그대로 남아, 눈에 보이는 앱 전환이 없었습니다. **실제 전송은 실제 메시지로 시도해 보았고, 테스트한 사람이 직접 확인했습니다**: 텍스트가 입력되고, 채팅방 자체의 전송 버튼이 눌렸으며(`send-button` 방식 — Return 키 대체는 필요 없었음), 포커스는 눈에 띄게 움직이지 않았고, 메시지는 정확히 한 번만 데이터베이스에 기록되었습니다. 초안 지우기 경로(보내지 않은 텍스트가 있는 *다른* 채팅 창을 닫는 것)도 실제로는 시도해 보지 않았습니다 — 실제 초안이 들어 있는 두 번째 채팅 창이 필요한데, 아직 테스트 환경을 만들지 못했습니다.
 
 `kakao_reply_message`, `kakao_react_message`, `kakao_delete_message` 모두 실제 채팅방에서 시도해 보았습니다. 답장: 실제 답장(종류 26)이 전송되었고 `src_logId`가 인용한 메시지와 일치했습니다. 반응: 인덱스 0은 "엄지척"을 추가했고 `NTChatLogMeta`로 확인했습니다. 선택기는 약 44개의 반응을 제공하며, 같은 반응을 다시 추가하면 그대로 유지됩니다. 삭제: `scope: auto`는 카카오톡 자체 메뉴가 제공할 때는 "모두에게서 삭제"를, 제공하지 않을 때는 "나에게서만 삭제"를 올바르게 선택했습니다(다른 사람의 메시지와 제 오래된 메시지에서 `dryRun`으로 확인 — "나에게서만"만 제공됨). 이제 각 scope는 타입 플래그만이 아니라 자신만의 흔적으로 확인됩니다("동작 방식" 참고): 모두에게서 삭제하면 이 README가 이미 설명한 `feedType: 14` 동반 행이 남고, 나에게서만 삭제하면 카카오톡의 선택 모드(메시지 옆 체크박스, 이후 확인)를 거쳐 메시지의 `status`가 `2`가 되며 동반 행은 없습니다.
@@ -87,7 +91,8 @@ MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 �
 
 - macOS 13 이상
 - 카카오톡 Mac 앱 설치 및 최소 한 번 로그인
-- Node.js 20 이상
+- Node.js 22 이상 (암호화된 데이터베이스 드라이버 `better-sqlite3-multiple-ciphers`가 22 이상을 요구합니다 — 20에서는 충돌합니다)
+- Xcode Command Line Tools (`xcode-select --install`), 네이티브 헬퍼의 Swift 컴파일러용 — "빌드 요구 사항" 참고
 - 터미널에 손쉬운 사용 권한 부여 (시스템 설정 → 개인정보 보호 및 보안 → 손쉬운 사용)
 - 데이터베이스를 읽을 수 없는 경우 전체 디스크 접근 권한
 
@@ -97,7 +102,7 @@ MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 �
 
 사용자를 최대한 방해하지 않으려고도 합니다. 기본적으로 채팅을 열기 전에 헬퍼는 *다른* 열려 있는 채팅 창들을 닫습니다 — 그중 하나가 키보드 포커스를 쥐고 있으면 열려는 채팅을 위한 Return 입력을 가로챌 수 있기 때문입니다. 메시지 목록이 있는 창만 건드리며, 캘린더 같은 채팅이 아닌 창은 전혀 건드리지 않습니다. **그중 다른 창의 입력란에 아직 보내지 않은 텍스트가 있으면, 창을 닫기 전에 그 텍스트를 지웁니다** — 아래 "안전 원칙" 참고. 채팅을 여는 것과 Return을 누르는 것은 카카오톡 메인 창에 직접 포커스를 주고 그 프로세스로 키 입력을 보내는 방식으로 이루어지며, 앱을 활성화하거나 맨 앞으로 가져오지 않습니다. 전송할 때는 먼저 텍스트를 직접 값으로 설정한 뒤 채팅방 자체의 전송 버튼을 누릅니다(이것도 포커스가 필요 없음). 버튼을 찾을 수 없을 때만 Return 입력으로 대체하는데, 이 경우에는 앱이 잠깐 활성화되어야 합니다. 메시지는 대상 채팅과 이름이 일치한다고 확인된 바로 그 창에만 입력되며, 그 창을 확인할 수 없으면 아무것도 전송하지 않습니다. 기본적으로 헬퍼는 이 대체 수단으로도 카카오톡을 활성화할 수 없습니다 — 눈에 보이는 포커스 변화를 감수하기보다 그냥 동작을 실패시킵니다. 실패시키기보다 마지막 수단으로 앱을 활성화하길 원하면 `KAKAOTALK_ALLOW_FOREGROUND=1`을 설정하세요. 다른 채팅 창(과 그 안의 초안)을 그대로 두고 싶다면 `KAKAOTALK_KEEP_OTHER_WINDOWS=1`을 설정하세요(이 경우 다른 창에 포커스가 있으면 Return이 그 창으로 들어갈 수 있습니다). `KAKAOTALK_ALLOW_FOREGROUND=1`을 설정한 경우 이론적으로는 여전히 포커스가 흔들릴 가능성이 있으며, Apple의 공개 자동화 API로는 완전히 배제할 수 없습니다(관련 조사는 `notes/`에 있으며 저장소에는 포함되지 않습니다).
 
-**`setup`은 카카오톡 창을 백그라운드에서 실제로 접근할 수 있는지 확인합니다.** 손쉬운 사용 API는 현재 데스크톱(Space)의 창만 볼 수 있으며, 디스플레이마다 전체 화면 공간을 쓰고 일반 데스크탑이 몇 개 없는 Mac에서는 Dock 아이콘의 Options 메뉴에 "Assign To → All Desktops" 항목 자체가 없을 수도 있습니다 — 그래서 이 방법이 항상 쓸 수 있는 건 아닙니다. 대신 `setup`은 정말 중요한 것을 직접 확인합니다: 네이티브 헬퍼가 앱을 앞으로 가져오지 않고도 지금 카카오톡 메인 창을 볼 수 있는가(창 동작이 의존하는 것과 같은 `kakao-ax inspect` 검사)? 볼 수 없으면 흔한 원인을 설명하고, 터미널에서는 해결 방법을 안내한 뒤 다시 확인합니다(최대 5회, 또는 `skip` 입력). 터미널이 없으면 이 검사를 통과할 때까지 setup이 미완료로 보고됩니다(종료 코드 2). `setup --skip-window-check`로 명시적으로 건너뛸 수 있고, `setup --redetect`는 캐시된 계정을 재사용하지 않고 계정 검색을 다시 실행합니다. 창 동작 중에도 창에 접근할 수 없으면 같은 설명과 함께 `MAIN_WINDOW_MISSING`으로 실패합니다. 정확한 원인은 공개 API로는 알아낼 수 없으므로(어느 Space에 창이 있는지는 비공개 API만 알려줌) 실제 원인을 진단하기보다 *흔한* 원인을 알려줍니다: 카카오톡이 있는 디스플레이를 전체 화면 앱이나 다른 데스크탑이 덮고 있거나, 창이 닫혀 있는 경우입니다. 제안하는 해결책: 해당 디스플레이에서 전체 화면을 끝내거나 그 일반 데스크탑으로 전환하기, 또는 카카오톡 창을 전체 화면 앱을 쓰지 않는 디스플레이로 옮기기; Dock 메뉴에 Assign To → All Desktops가 있다면 그것도 도움이 됩니다.
+**`setup`은 카카오톡 창을 백그라운드에서 실제로 접근할 수 있는지 확인합니다.** 앱의 일반적인 손쉬운 사용 창 목록은 현재 보이는 데스크톱(Space)의 창만 담지만, 헬퍼는 [AltTab](https://alt-tab-macos.netlify.app/)이 쓰는 것과 같은 원격 창 검색 기법(문서화되지 않은 `_AXUIElementCreateWithRemoteToken` 호출, 같은 손쉬운 사용 권한만 필요, 그 외에는 아무것도 필요 없음)으로 넘어가 앱을 활성화하거나 포커스를 건드리지 않고도 다른 Space나 디스플레이의 창까지 찾아냅니다. 그래서 보통은 카카오톡 창이 어느 디스플레이나 데스크탑에 있는지는 더 이상 문제가 되지 않습니다. `setup`은 정말 중요한 것을 확인합니다: 네이티브 헬퍼가 두 방법 중 하나로 지금 카카오톡 메인 창을 볼 수 있는가(창 동작이 의존하는 것과 같은 `kakao-ax inspect` 검사)? 볼 수 없으면 흔한 원인을 설명하고, 터미널에서는 해결 방법을 안내한 뒤 다시 확인합니다(최대 5회, 또는 `skip` 입력). 터미널이 없으면 이 검사를 통과할 때까지 setup이 미완료로 보고됩니다(종료 코드 2). `setup --skip-window-check`로 명시적으로 건너뛸 수 있고, `setup --redetect`는 캐시된 계정을 재사용하지 않고 계정 검색을 다시 실행합니다. 창 동작 중에도 두 방법 모두로 창에 접근할 수 없으면 `MAIN_WINDOW_MISSING`으로 실패합니다 — 이 경우 창이 어느 Space에서도 발견되지 않은 것이므로, 거의 확실히 실제로 닫혀 있는 것입니다(빨간 버튼). 제안하는 해결책: Dock의 카카오톡 아이콘을 한 번 눌러 창을 엽니다. `KAKAOTALK_ALLOW_FOREGROUND=1`을 설정했을 때만 헬퍼는 한 단계 더 나아가 실제로 카카오톡을 활성화해 다시 찾아보는, 진짜 마지막 수단을 씁니다 — "설정" 참고.
 
 - Xcode Command Line Tools (`xcode-select --install`), `swiftc` 컴파일러용
 - `npm run build`가 TypeScript와 헬퍼를 모두 컴파일합니다. 헬퍼는 `kakao-ax.swift`가 바뀔 때만 다시 빌드됩니다
@@ -105,12 +110,26 @@ MCP 클라이언트가 연결되면 서버는 `initialize` 응답의 일부로 �
 
 ## 📦 설치
 
+아직 npm에 배포되지 않았습니다 — 소스에서 설치합니다:
+
 ```bash
 git clone https://github.com/gayratjon-02/kakaotalk-mcp-korea.git
 cd kakaotalk-mcp-korea
-npm install
+npm ci
 npm run build
 ```
+
+`npm run build`는 TypeScript와 네이티브 Swift 헬퍼를 함께 컴파일합니다("빌드 요구 사항" 참고). 소스에서 빌드할 때는 Swift 컴파일러가 있어야 합니다 — Xcode Command Line Tools가 없으면 빌드가 멈추고 설치할 정확한 명령을 알려줍니다.
+
+이 패키지가 배포되면 `npx kakaotalk-mcp-korea`나 `npm i -g kakaotalk-mcp-korea`도 같은 방식으로 동작하지만, 그때는 헬퍼가 설치 자체를 실패시키지 않고 설치 후 자동으로 컴파일을 시도합니다: 컴파일러가 없으면 힌트만 출력합니다(채팅 읽기는 그대로 되고, Xcode Command Line Tools를 설치하고 `npm rebuild kakaotalk-mcp-korea`를 실행하기 전까지는 전송과 창 동작만 안 됩니다).
+
+계정을 한 번 감지하고 카카오톡 창을 백그라운드에서 접근할 수 있는지 확인합니다(모든 창 동작에 필요 — "빌드 요구 사항" 참고):
+
+```bash
+node dist/index.js setup
+```
+
+(배포 후에는 `npx kakaotalk-mcp-korea setup`이 됩니다.)
 
 ## ⚙️ 설정
 
@@ -126,6 +145,67 @@ npm run build
 | `KAKAOTALK_BLOCKED_CHATS` | *(비어 있음)* | `kakao_send_message`가 항상 거부하는 채팅/연락처 이름(쉼표로 구분). 로컬 `~/.config/kakaotalk-mcp-korea/blocked-chats.json`(이름 배열)도 함께 읽히므로, 비공개 이름이 `.env`나 저장소에 남지 않습니다 |
 | `KAKAOTALK_KEEP_OTHER_WINDOWS` | `0` | `1` 또는 `true`로 설정하면 전송 시 대상 채팅을 열기 전에 다른 열려 있는 채팅 창을 닫지(그리고 그 안의 초안을 지우지) 않습니다 — "안전 원칙" 참고 |
 | `KAKAOTALK_ALLOW_FOREGROUND` | `0` | `1` 또는 `true`로 설정하면 헬퍼가 동작을 실패시키는 대신 마지막 수단으로 카카오톡을 활성화할 수 있습니다. 기본값은 절대 활성화하지 않는 것입니다 — "빌드 요구 사항" 참고 |
+
+## 🔌 MCP 클라이언트에서 사용하기
+
+클라이언트의 명령으로 `node`와, "설치"에서 clone한 뒤의 `dist/index.js` 절대 경로를 지정합니다. Claude Desktop이라면 `claude_desktop_config.json`에 다음을 추가합니다:
+
+```json
+{
+  "mcpServers": {
+    "kakaotalk": {
+      "command": "node",
+      "args": ["/absolute/path/to/kakaotalk-mcp-korea/dist/index.js"]
+    }
+  }
+}
+```
+
+Claude Code라면 `claude mcp add kakaotalk -- node /absolute/path/to/kakaotalk-mcp-korea/dist/index.js`를 실행하거나, `.mcp.json`에 같은 형태로 추가합니다:
+
+```json
+{
+  "mcpServers": {
+    "kakaotalk": {
+      "command": "node",
+      "args": ["/absolute/path/to/kakaotalk-mcp-korea/dist/index.js"]
+    }
+  }
+}
+```
+
+이 패키지가 npm에 배포되면, 두 설정 모두 경로를 따로 관리할 필요 없이 `npx`를 쓸 수 있습니다:
+
+```json
+{
+  "mcpServers": {
+    "kakaotalk": {
+      "command": "npx",
+      "args": ["-y", "kakaotalk-mcp-korea"]
+    }
+  }
+}
+```
+
+클라이언트를 처음 연결하기 전에 `setup`을 실행하세요("설치" 참고) — MCP 클라이언트는 서버를 직접 실행하므로 `setup`이 필요로 할 수 있는 대화형 질문에 답할 수 없습니다.
+
+## 🩺 문제 해결
+
+| 문제 | 의미 / 해결 방법 |
+| --- | --- |
+| `MAIN_WINDOW_MISSING` | 네이티브 헬퍼가 어느 Space에서도 카카오톡 메인 창을 찾지 못했습니다 — 거의 확실히 닫혀 있는 것입니다. Dock의 카카오톡 아이콘을 한 번 눌러 창을 연 뒤 다시 시도하세요("빌드 요구 사항" 참고) |
+| `USER_ACTIVE` | 지금 카카오톡이 맨 앞에 있어 사용 중인 것으로 보여, 작업 중인 것을 건드리지 않기 위해 전송이나 창 동작을 건너뛰었습니다("안전 원칙" 참고). 다른 앱으로 전환한 뒤 다시 시도하세요 |
+| 채팅 창은 열렸지만 아무것도 입력되지 않음, 또는 `setup`의 창 확인이 계속 실패함 | `npx kakaotalk-mcp-korea setup`(소스에서는 `node dist/index.js setup`)을 다시 실행하고 안내를 따르세요 — 최대 5회까지 다시 확인합니다 |
+| 손쉬운 사용 권한 대화상자가 안 뜨거나, 동작이 아무 일도 없이 끝남 | 시스템 설정 → 개인정보 보호 및 보안에서 터미널 앱에 손쉬운 사용 권한(데이터베이스 자체를 읽을 수 없다면 전체 디스크 접근 권한도)을 부여한 뒤 터미널을 재시작하세요 |
+| 전송은 안 되지만 읽기는 됨 | 네이티브 헬퍼가 빌드되지 않은 것입니다 — Xcode Command Line Tools를 설치(`xcode-select --install`)하고 `npm rebuild kakaotalk-mcp-korea`(소스에서는 `npm run build`)를 실행하세요 |
+| `FILE_EXPIRED` / `FILE_TOO_LARGE` / `FILE_DOWNLOAD_FAILED` | 공유된 파일이나 사진이 카카오 서버에서 더 이상 없거나, 용량 제한을 넘었거나, 다운로드 자체가 실패한 것입니다 — 있는 그대로 보고되며 재시도하지 않습니다 |
+
+## ⚠️ 알려진 한계
+
+- 전송·답장·반응·삭제·수정 같은 창 동작은 Mac의 잠금이 풀려 있고 카카오톡 메인 창이 (어느 Space나 디스플레이든) 실제로 열려 있을 때만 동작합니다 — 이유는 "빌드 요구 사항", 오류는 "문제 해결"의 `MAIN_WINDOW_MISSING` 참고.
+- 카카오톡 자체가 맨 앞에 있는 동안은 창 동작이 시도조차 되지 않고 건너뛰어집니다(`USER_ACTIVE`) — "문제 해결" 참고.
+- 사진과 사진 앨범은 목록 확인과 읽기가 가능합니다(`kakao_list_images`, `kakao_get_image`)만, 이미지 전송은 아직 구현되지 않았습니다.
+- 구현된 것과 안 된 것의 전체 목록은 "MCP 도구" 참고.
 
 ## 🧠 동작 방식
 
@@ -149,9 +229,21 @@ npm run build
 - 본인의 로그인 아이디와 전화번호는 `kakao_account_info`에서만, 그것도 연결된 계정 본인에 대해서만 반환됩니다 — 다른 어떤 도구도 이를 노출하지 않습니다. `kakao_contact_profile`과 `kakao_search_contacts`는 설계상 다른 사람의 전화번호를 절대 반환하지 않습니다("MCP 도구" 참고). 연결 시 클라이언트로 보내는 짧은 계정 요약("MCP 도구" 참고)에도 둘 다 포함되지 않습니다.
 - 메신저 자동화는 이용 약관에 저촉될 수 있습니다. 위험을 감수하고 사용하며, 가능하면 본인 계정에서만 사용하세요.
 
+## 🔐 프라이버시
+
+이 프로젝트가 하는 모든 일은 사용자 본인의 Mac에서 일어납니다. 데이터베이스, 계정 설정, 네이티브 헬퍼 모두 로컬 기기에서 읽고 실행되며, 이 프로젝트 자체의 서버로 보내지는 것은 없습니다 — 그런 서버 자체가 없기 때문입니다. 텔레메트리도, 분석도, 어떤 백엔드 계정도 없습니다.
+
+유일하게 발생하는 네트워크 요청은 각 기능 설명이 말하는 바로 그것이며, 오직 카카오 자체의 CDN 호스트로만 갑니다: 공유 파일 다운로드(`kakao_read_file`), 사진이나 앨범(`kakao_get_image`), 프로필 사진(`kakao_profile_image`) — 모두 카카오톡에서 연결된 계정에 이미 공유되어 있던 것들입니다. 다운로드된 사본은 저장소나 이 프로젝트가 관리하는 어떤 곳도 아닌, 사용자 홈 디렉터리의 `~/.cache/kakaotalk-mcp-korea`에 캐시됩니다. 다운로드의 정확한 제한과 각 도구가 반환하는 데이터는 "안전 원칙"을 참고하세요.
+
+## 🦋 비공식 프로젝트
+
+이것은 독립적인 비공식 프로젝트입니다. 카카오와 제휴하거나, 승인받거나, 어떤 특별한 접근 권한을 받아 만든 것이 아닙니다 — 손쉬운 사용 권한이 있는 다른 Mac 앱이 할 수 있는 것과 같은 방식으로, 카카오톡 자체가 기록하는 같은 로컬 데이터베이스와 plist 파일을 읽고, 전송을 위해 앱 자체의 UI를 제어할 뿐입니다.
+
+이런 방식으로 소비자 메신저를 자동화하는 것은 카카오톡 이용 약관에 저촉될 수 있습니다. 그 위험은 이 프로젝트가 대신 판단해 줄 수 없으며, 사용자 본인이 감당해야 합니다. 이 Mac에 로그인된 본인의 카카오톡 계정에서만 사용하세요 — 여기 있는 어떤 것도 상대방의 동의 없이 다른 사람의 계정이나 채팅방에 대해 행동하도록 만들어지지 않았고, 그렇게 쓰여서도 안 됩니다.
+
 ## 🤝 기여
 
-커밋은 Conventional Commits 형식을 따릅니다 (`feat:`, `fix:`, `chore:`, `docs:`).
+소스 빌드, 테스트 실행, 저장소에 들어가는 모든 것에 대한 fixture 규칙(실제 채팅이나 연락처가 아닌 가상의 이름만 사용)은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요. 커밋은 Conventional Commits 형식을 따릅니다 (`feat:`, `fix:`, `chore:`, `docs:`).
 
 ## 🙏 크레딧
 
@@ -160,3 +252,7 @@ npm run build
 ## 📄 라이선스
 
 MIT
+
+---
+
+보안 문제를 발견하셨나요? [SECURITY.md](./SECURITY.md)를 참고하세요. 버전 간 변경 사항은 [CHANGELOG.md](./CHANGELOG.md)를 참고하세요.
