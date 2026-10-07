@@ -105,10 +105,10 @@ const TEXT: Record<Message, Record<Lang, string>> = {
 		[Lang.UZ]: "KakaoTalk ishlamayapti va uni ishga tushirib bo'lmadi.",
 	},
 	[Message.MAIN_WINDOW_MISSING]: {
-		[Lang.EN]: 'The KakaoTalk main window cannot be reached right now. Usual causes: a full-screen app or another desktop covers the display that holds KakaoTalk, or the window is closed. Fix: leave full screen on that display or switch to its normal desktop, or drag the KakaoTalk windows to a display where you do not use full-screen apps. If the Dock icon menu (Options) offers Assign To, All Desktops helps too.',
-		[Lang.KO]: '지금은 카카오톡 메인 창에 접근할 수 없습니다. 흔한 원인: 카카오톡이 있는 디스플레이를 전체 화면 앱이나 다른 데스크탑이 덮고 있거나 창이 닫혀 있습니다. 해결: 해당 디스플레이의 전체 화면을 끝내거나 일반 데스크탑으로 전환하거나, 카카오톡 창을 전체 화면 앱을 쓰지 않는 디스플레이로 옮겨 주세요. Dock 아이콘의 옵션에 지정 대상이 있으면 모든 데스크탑도 도움이 됩니다.',
-		[Lang.RU]: 'Сейчас до главного окна KakaoTalk не добраться. Обычные причины: полноэкранное приложение или другой рабочий стол закрывает дисплей с KakaoTalk, либо окно закрыто. Решение: выйдите из полноэкранного режима на этом дисплее или переключитесь на его обычный рабочий стол, либо перетащите окна KakaoTalk на дисплей без полноэкранных приложений. Если в меню значка Dock (Параметры) есть пункт Назначить, поможет и Все рабочие столы.',
-		[Lang.UZ]: "KakaoTalk asosiy oynasiga hozir yetib bo'lmayapti. Odatiy sabablar: KakaoTalk turgan ekranni to'liq ekran ilova yoki boshqa ish stoli yopib turibdi, yoki oyna yopilgan. Yechim: o'sha ekranda to'liq ekrandan chiqing yoki uning oddiy ish stoliga o'ting, yoki KakaoTalk oynalarini to'liq ekran ilova ishlatmaydigan ekranga olib o'ting. Dock belgisi menyusida (Options) Assign To bo'lsa, All Desktops ham yordam beradi.",
+		[Lang.EN]: 'The KakaoTalk main window was not found. It is most likely closed (red button): click the KakaoTalk icon in the Dock once to show it. Windows on other desktops and displays are reached automatically, so nothing else is needed.',
+		[Lang.KO]: '카카오톡 메인 창을 찾을 수 없습니다. 창이 닫혀 있을 가능성이 큽니다(빨간 버튼): Dock의 카카오톡 아이콘을 한 번 눌러 창을 열어 주세요. 다른 데스크탑이나 디스플레이에 있는 창은 자동으로 접근하므로 그 외에는 필요하지 않습니다.',
+		[Lang.RU]: 'Главное окно KakaoTalk не найдено. Скорее всего оно закрыто (красная кнопка): один раз нажмите на значок KakaoTalk в Dock, чтобы показать его. Окна на других рабочих столах и дисплеях доступны автоматически, больше ничего не нужно.',
+		[Lang.UZ]: "KakaoTalk asosiy oynasi topilmadi. Ehtimol u yopilgan (qizil tugma): Dock'dagi KakaoTalk belgisini bir marta bosib oynani oching. Boshqa ish stollari va ekranlardagi oynalarga o'zi yetib boriladi, boshqa hech narsa kerak emas.",
 	},
 	[Message.SEND_UNVERIFIED]: {
 		[Lang.EN]: 'The text was entered but it could not be confirmed that the message was sent. Check the chat before retrying.',

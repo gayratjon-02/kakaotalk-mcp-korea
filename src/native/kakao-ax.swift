@@ -203,7 +203,7 @@ func ensureMainWindow(_ app: AXUIElement) -> AXUIElement {
 	if let window = findMainWindow(app) { return window }
 	remoteWindowSearch = false
 	// in background mode the app is never brought forward: ask the user to show the window instead
-	guard foregroundAllowed else { fail("MAIN_WINDOW_MISSING", "background mode: the main window is not on this Space or is closed") }
+	guard foregroundAllowed else { fail("MAIN_WINDOW_MISSING", "background mode: the main window was not found on any Space, it is probably closed") }
 	// windows on another display or Space are invisible to the Accessibility API until the app is brought forward
 	runningApp()?.activate(options: [.activateAllWindows])
 	var seen: AXUIElement?
