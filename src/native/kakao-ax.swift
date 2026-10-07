@@ -501,6 +501,16 @@ func probeMenu(_ app: AXUIElement, pid: pid_t, chat: String, match: String, pres
 				func ticked(_ box: AXUIElement) -> Bool { (attribute(box, "AXValue") as? NSNumber)?.intValue == 1 }
 				let rowBoxes = ([row] + descendants(row, depth: 8)).filter { role($0) == "AXCheckBox" }
 				report["selection"] = ["boxes": boxes.count, "ticked": boxes.filter(ticked).count, "targetRowBoxes": rowBoxes.count, "targetRowTicked": rowBoxes.filter(ticked).count]
+				// edit / reply mode: is the input pre-filled with the message, and what do the window's own buttons say
+				var windowButtons: [[String: Any]] = []
+				for button in children(session.window) where role(button) == "AXButton" {
+					let name = title(button) ?? ""
+					if name.isEmpty { continue }
+					windowButtons.append(["title": name, "enabled": (attribute(button, "AXEnabled") as? Bool) ?? false])
+				}
+				report["windowButtons"] = windowButtons
+				report["inputPrefilledWithMessage"] = (text(session.input, "AXValue") ?? "") == match
+				report["inputLength"] = (text(session.input, "AXValue") ?? "").count
 				report["afterPress"] = ["newWindows": afterWindows.count, "emojiButtons": emojiCount, "emojiDetails": emojiDetails, "otherControls": found.filter { $0["desc"] != "emoji" }]
 				// back out without confirming anything; selection mode has its own Cancel button
 				if let cancel = descendants(session.window, depth: 12).first(where: { role($0) == "AXButton" && title($0) == "Cancel" }) { press(cancel) }
@@ -529,6 +539,7 @@ let menuTitles: [String: String] = [
 	"delete-me": "Delete only for me",
 	"reply": "Reply",
 	"react": "Reactions",
+	"edit": "Edit",
 ]
 
 func exactTexts(in element: AXUIElement) -> [String] {
@@ -615,11 +626,49 @@ func deleteOnlyForMe(window: AXUIElement, locateRow: () -> AXUIElement?) -> Stri
 	return "no-confirmation"
 }
 
+// The button that saves an edit. It is looked up by its exact title among the window's own buttons; if none is found
+// the edit is abandoned, so nothing is guessed. Send is accepted because some versions reuse it in edit mode.
+func saveEditButton(in window: AXUIElement) -> AXUIElement? {
+	let titles: Set<String> = ["Send", "전송", "Save", "저장", "Edit", "수정", "Done", "완료", "Update"]
+	return children(window).first { role($0) == "AXButton" && titles.contains(title($0) ?? "") }
+}
+
+// Edit mode pre-fills the input with the current text. It is only used when that really is the case, then the text is replaced.
+func editMessage(window: AXUIElement, input: AXUIElement, original: String, newText: String) -> String {
+	func closeEditMode() {
+		if let close = descendants(window, depth: 8).first(where: { role($0) == "AXButton" && text($0, "AXDescription") == "Close" }) { press(close) }
+		_ = AXUIElementSetAttributeValue(input, "AXValue" as CFString, "" as CFString)
+	}
+	let prefilled = waitUntil(3) { (text(input, "AXValue") ?? "") == original }
+	guard prefilled else {
+		closeEditMode()
+		fail("INPUT_NOT_FOUND", "edit mode did not pre-fill the message text")
+	}
+	guard AXUIElementSetAttributeValue(input, "AXValue" as CFString, newText as CFString) == .success, text(input, "AXValue") == newText else {
+		closeEditMode()
+		fail("INPUT_NOT_FOUND", "the new text could not be placed in the input")
+	}
+	var saved: AXUIElement?
+	_ = waitUntil(2) {
+		saved = saveEditButton(in: window)
+		return saved != nil && ((attribute(saved!, "AXEnabled") as? Bool) ?? false)
+	}
+	guard let button = saved else {
+		closeEditMode()
+		fail("INPUT_NOT_FOUND", "no button to save the edit was found")
+	}
+	press(button)
+	// edit mode ends and the input empties once the edit is saved
+	let finished = waitUntil(4) { (text(input, "AXValue") ?? "x").isEmpty }
+	if !finished { fail("SEND_UNVERIFIED", "the edit was not confirmed by the window") }
+	return title(button) ?? "button"
+}
+
 // Runs one action from a message's context menu. The message is found by its exact text, counted from the newest
 // (nth = 0 is the latest copy), so an identical older message is never touched by mistake.
 func messageAction(_ app: AXUIElement, pid: pid_t, chat: String, match: String, nth: Int, action: String, replyText: String?, reactionIndex: Int, dryRun: Bool) {
 	guard action == "delete-auto" || menuTitles[action] != nil else { fail("USAGE", "unknown action") }
-	if action == "reply" && !dryRun && (replyText ?? "").isEmpty { fail("USAGE", "reply needs --text") }
+	if (action == "reply" || action == "edit") && !dryRun && (replyText ?? "").isEmpty { fail("USAGE", "\(action) needs the new text") }
 	let session = openChat(app, pid: pid, chat: chat)
 	// a freshly opened window fills its message list a moment later, so wait for the message instead of reading once
 	func locateRow() -> AXUIElement? {
@@ -662,6 +711,9 @@ func messageAction(_ app: AXUIElement, pid: pid_t, chat: String, match: String, 
 			Thread.sleep(forTimeInterval: 1.2)
 			succeed(["ok": true, "action": action, "applied": "everyone"])
 		}
+	case "edit":
+		let used = editMessage(window: session.window, input: session.input, original: match, newText: replyText ?? "")
+		succeed(["ok": true, "action": action, "savedWith": used])
 	case "reply":
 		_ = waitUntil(2) { descendants(session.window, depth: 8).contains { role($0) == "AXButton" && text($0, "AXDescription") == "Close" } }
 		let method = submit(app, pid: pid, session: session, message: replyText ?? "")
@@ -695,6 +747,7 @@ let appElement = AXUIElementCreateApplication(process.processIdentifier)
 
 switch command {
 case "inspect":
+	// inspect is diagnostics only and obeys --no-foreground like every other command
 	_ = ensureMainWindow(appElement)
 	inspect(appElement)
 case "probe-menu":

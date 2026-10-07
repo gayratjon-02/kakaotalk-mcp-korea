@@ -5,12 +5,13 @@ import { newerIdenticalCopies, type RawMessage } from '../database/message-verif
 import { AppError } from '../server/app-error.js';
 import { assertHelperOk, runHelper, type HelperReply } from './helper-client.js';
 
-export type MessageActionKind = 'delete-auto' | 'delete-everyone' | 'delete-me' | 'reply' | 'react';
+export type MessageActionKind = 'delete-auto' | 'delete-everyone' | 'delete-me' | 'reply' | 'react' | 'edit';
 
 export type MessageActionRequest = {
 	chatName: string;
 	target: RawMessage;
 	action: MessageActionKind;
+	// the reply text, or the new text of an edit
 	replyText?: string;
 	reactionIndex?: number;
 	dryRun?: boolean;

@@ -160,4 +160,36 @@ export function registerMessageActionTools(server: McpServer): void {
 			}
 		},
 	);
+
+	server.registerTool(
+		'kakao_edit_message',
+		{
+			title: 'Edit one of your own messages',
+			description:
+				'Replace the text of one of your own recent text messages, by its messageId. KakaoTalk only offers editing for your own recent messages; otherwise the call fails and changes nothing. ' +
+				'Call with confirm false first to see the old and the new text; call with confirm true only after the user approved the new text.',
+			inputSchema: {
+				chat: z.string().min(1),
+				messageId: MESSAGE_ID,
+				text: z.string().min(1).max(4000),
+				confirm: z.boolean().default(false),
+			},
+			annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+		},
+		async ({ chat, messageId, text, confirm }) => {
+			try {
+				const { chatName, message } = resolveTarget(chat, messageId);
+				if (message.authorId !== ownUserId()) throw new AppError(Message.MESSAGE_NOT_ELIGIBLE);
+				if (!confirm) {
+					return ok({ preview: true, chat: chatName, messageId, oldText: message.text, newText: text, note: t(Message.SEND_NOT_CONFIRMED, env.lang) });
+				}
+				const reply = await runMessageAction({ chatName, target: message, action: 'edit', replyText: text });
+				const changed = await waitFor(() => rawMessage(messageId)?.text === text);
+				if (!changed) throw new AppError(Message.ACTION_NOT_CONFIRMED);
+				return ok({ edited: true, chat: chatName, messageId, savedWith: reply.savedWith });
+			} catch (error) {
+				return fail(error);
+			}
+		},
+	);
 }
