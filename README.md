@@ -37,7 +37,9 @@ Not implemented yet: sending to multiple chats at once, @mentions, sending image
 
 ## Tested so far
 
-Against a real, personal KakaoTalk database: listing chats, reading and searching messages, the unread summary, contact search, the new-messages cursor stream, link extraction and the Markdown export. `kakao_send_message`'s preview and its chat-not-found error are tested; an actual send has not been exercised yet, so do not treat it as verified in practice.
+Against a real, personal KakaoTalk database: listing chats, reading and searching messages, the unread summary, contact search, the new-messages cursor stream, link extraction and the Markdown export. `kakao_send_message`'s preview and its chat-not-found error are tested.
+
+Sending itself now goes through the native helper described above instead of AppleScript. It has not been tested end to end yet: opening a brand-new chat window and an actual send are both still unverified, so do not treat them as working until this note is updated.
 
 ## Requirements
 
@@ -46,6 +48,13 @@ Against a real, personal KakaoTalk database: listing chats, reading and searchin
 - Node.js 20 or newer
 - Accessibility permission for your terminal (System Settings → Privacy & Security → Accessibility)
 - Full Disk Access if the database cannot be read
+
+## Build requirements
+
+Sending a message drives KakaoTalk through a small native helper (`src/native/kakao-ax.swift`, compiled to `dist/bin/kakao-ax`) instead of AppleScript — AppleScript located chat windows by numeric index, which broke when window order shifted. The helper only touches the windows it opens itself and never the ones you already had open.
+
+- Xcode Command Line Tools (`xcode-select --install`), for the `swiftc` compiler
+- `npm run build` compiles both the TypeScript and the helper; the helper is only rebuilt when `kakao-ax.swift` changes
 
 ## Install
 
