@@ -16,3 +16,8 @@ export function closeDb(): void {
 	cached?.close();
 	cached = null;
 }
+
+// lets tests run the queries against an in-memory database instead of the real account
+export function useDb(db: KakaoDb | null): void {
+	cached = db;
+}
