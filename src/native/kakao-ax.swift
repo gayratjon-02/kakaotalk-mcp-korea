@@ -852,6 +852,12 @@ if runningApp() == nil {
 guard let process = runningApp() else { fail("APP_NOT_RUNNING") }
 let appElement = AXUIElementCreateApplication(process.processIdentifier)
 
+// When KakaoTalk is the app in front, the user is working in it right now. Every key press, closed window and cleared draft
+// of this tool would land in the middle of their work, so nothing is touched until they have moved on.
+if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleId && ["send", "message-action"].contains(command) {
+	fail("USER_ACTIVE")
+}
+
 switch command {
 case "inspect":
 	// inspect is diagnostics only and obeys --no-foreground like every other command

@@ -9,6 +9,7 @@ export enum Message {
 	DATABASE_LOCKED = 'DATABASE_LOCKED',
 	CHAT_NOT_FOUND = 'CHAT_NOT_FOUND',
 	CHAT_BLOCKED = 'CHAT_BLOCKED',
+	USER_ACTIVE = 'USER_ACTIVE',
 	WINDOW_REACHABLE = 'WINDOW_REACHABLE',
 	MESSAGE_NOT_VISIBLE = 'MESSAGE_NOT_VISIBLE',
 	MENU_NOT_FOUND = 'MENU_NOT_FOUND',
@@ -193,6 +194,12 @@ const TEXT: Record<Message, Record<Lang, string>> = {
 		[Lang.KO]: '백그라운드에서 카카오톡 창에 접근할 수 있습니다. 창 동작을 사용할 수 있습니다.',
 		[Lang.RU]: 'Окно KakaoTalk доступно в фоне. Действия с окнами готовы.',
 		[Lang.UZ]: "KakaoTalk oynasiga fonda yetib borish mumkin. Oyna amallari tayyor.",
+	},
+	[Message.USER_ACTIVE]: {
+		[Lang.EN]: 'KakaoTalk is the app in front, so you are using it right now. Nothing was touched. Try again once you have switched to another app.',
+		[Lang.KO]: '카카오톡이 현재 전면에 있어 사용 중인 것으로 보입니다. 아무것도 건드리지 않았습니다. 다른 앱으로 전환하신 뒤 다시 시도해 주세요.',
+		[Lang.RU]: 'KakaoTalk сейчас на переднем плане, значит вы им пользуетесь. Ничего не затронуто. Повторите попытку, когда переключитесь на другое приложение.',
+		[Lang.UZ]: "KakaoTalk hozir oldinda, demak siz u bilan ishlayapsiz. Hech narsaga tegilmadi. Boshqa ilovaga o'tganingizdan keyin qayta urinib ko'ring.",
 	},
 	[Message.CHAT_AMBIGUOUS]: {
 		[Lang.EN]: 'More than one chat matches that name. Use the exact name or the chat id.',
