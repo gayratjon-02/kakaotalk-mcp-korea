@@ -21,4 +21,5 @@ export const env = {
 	scriptTimeoutMs: toPositiveInt(process.env.KAKAOTALK_SCRIPT_TIMEOUT_MS, 15000),
 	logLevel: toLogLevel(process.env.KAKAOTALK_LOG_LEVEL),
 	lang: toLang(process.env.KAKAOTALK_LANG),
+	maxFileMb: toPositiveInt(process.env.KAKAOTALK_MAX_FILE_MB, 25),
 } as const;
