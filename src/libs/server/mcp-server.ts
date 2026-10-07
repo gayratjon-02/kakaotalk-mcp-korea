@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { registerAccountTools } from '../tool/account-tools.js';
 import { registerFileTools } from '../tool/file-tools.js';
 import { registerMessageActionTools } from '../tool/message-action-tools.js';
+import { registerImageTools } from '../tool/image-tools.js';
 import { registerInsightTools } from '../tool/insight-tools.js';
 import { registerReadTools } from '../tool/read-tools.js';
 import { registerStreamTools } from '../tool/stream-tools.js';
@@ -16,6 +17,7 @@ export async function startMcpServer(): Promise<void> {
 	registerInsightTools(server);
 	registerStreamTools(server);
 	registerFileTools(server);
+	registerImageTools(server);
 	registerAccountTools(server);
 	registerMessageActionTools(server);
 	registerSendTool(server);
