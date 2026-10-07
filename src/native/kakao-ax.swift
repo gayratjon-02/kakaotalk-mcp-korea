@@ -394,6 +394,15 @@ func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 		}
 		func waitForChatWindow(_ seconds: Double) {
 			_ = waitUntil(seconds) {
+				// The app names its focused window straight away, which stays cheap and correct even when the new window's
+				// element id lies far beyond the range the window search covers (ids keep growing while the app runs).
+				if let focused = attribute(app, "AXFocusedWindow"), CFGetTypeID(focused) == AXUIElementGetTypeID() {
+					let candidate = focused as! AXUIElement
+					if !CFEqual(candidate, main), identifier(candidate) != mainWindowId, !contains(before, candidate) {
+						chatWindow = candidate
+						return true
+					}
+				}
 				chatWindow = windows(of: app).first { !contains(before, $0) && identifier($0) != mainWindowId }
 				return chatWindow != nil
 			}
