@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { registerFileTools } from '../tool/file-tools.js';
 import { registerInsightTools } from '../tool/insight-tools.js';
 import { registerReadTools } from '../tool/read-tools.js';
 import { registerStreamTools } from '../tool/stream-tools.js';
@@ -11,6 +12,7 @@ export async function startMcpServer(): Promise<void> {
 	registerReadTools(server);
 	registerInsightTools(server);
 	registerStreamTools(server);
+	registerFileTools(server);
 	registerSendTool(server);
 	await server.connect(new StdioServerTransport());
 	logger.info('mcp server ready');
