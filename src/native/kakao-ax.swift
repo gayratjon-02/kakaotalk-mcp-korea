@@ -16,7 +16,8 @@ let bundleId = "com.kakao.KakaoTalkMac"
 let mainWindowId = "Main Window"
 let chatTabId = "chatrooms"
 let returnKey: CGKeyCode = 36
-// --no-foreground forbids activating KakaoTalk at all; the run then fails instead of taking focus
+// --no-foreground forbids activating KakaoTalk at all; the run then fails instead of taking focus.
+// The Node side passes it unless KAKAOTALK_ALLOW_FOREGROUND is set.
 let foregroundAllowed = !CommandLine.arguments.contains("--no-foreground")
 // other chat windows are closed first unless --keep-other-windows is given
 let closeOthers = !CommandLine.arguments.contains("--keep-other-windows")
@@ -34,17 +35,27 @@ func emit(_ object: [String: Any]) {
 var previousApp: NSRunningApplication? = NSWorkspace.shared.frontmostApplication
 
 func restoreFocus() {
+	// Only undo a focus change this run caused: if KakaoTalk is not in front, the user has already moved on
+	// and pulling them back to an older app would steal focus from where they are working now.
+	guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleId else { return }
 	guard let previous = previousApp, previous.bundleIdentifier != bundleId, !previous.isTerminated else { return }
 	previous.activate(options: [])
 }
 
+// runs on every exit path, so a window this run opened is closed even when the run ends with an error
+var cleanup: (() -> Void)?
+
 func fail(_ code: String, _ detail: String = "") -> Never {
+	cleanup?()
+	cleanup = nil
 	restoreFocus()
 	emit(["ok": false, "code": code, "detail": detail])
 	exit(0)
 }
 
 func succeed(_ object: [String: Any]) {
+	cleanup?()
+	cleanup = nil
 	restoreFocus()
 	emit(object)
 }
@@ -103,10 +114,14 @@ func focusWindow(_ app: AXUIElement, _ window: AXUIElement) -> Bool {
 	return waitUntil(2) { isFocused() }
 }
 
-func pressReturn(pid: pid_t) {
+func pressKey(pid: pid_t, key: CGKeyCode) {
 	for down in [true, false] {
-		CGEvent(keyboardEventSource: nil, virtualKey: returnKey, keyDown: down)?.postToPid(pid)
+		CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: down)?.postToPid(pid)
 	}
+}
+
+func pressReturn(pid: pid_t) {
+	pressKey(pid: pid, key: returnKey)
 }
 
 // MARK: - App and window discovery
@@ -131,6 +146,8 @@ func findMainWindow(_ app: AXUIElement) -> AXUIElement? {
 func ensureMainWindow(_ app: AXUIElement) -> AXUIElement {
 	// the common case needs no activation at all, so the user's focus is left alone
 	if let window = findMainWindow(app) { return window }
+	// in background mode the app is never brought forward: ask the user to show the window instead
+	guard foregroundAllowed else { fail("MAIN_WINDOW_MISSING", "background mode: the main window is not on this Space or is closed") }
 	// windows on another display or Space are invisible to the Accessibility API until the app is brought forward
 	runningApp()?.activate(options: [.activateAllWindows])
 	var seen: AXUIElement?
@@ -309,6 +326,7 @@ func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 		closeIfOurs()
 		fail("INPUT_NOT_FOUND")
 	}
+	if openedByUs { cleanup = { closeWindow(window) } }
 	return ChatSession(window: window, input: field, openedByUs: openedByUs, closed: tidy.closed, clearedDrafts: tidy.clearedDrafts)
 }
 
@@ -361,6 +379,118 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 	succeed(["ok": true, "sent": true, "method": pressedSend ? "send-button" : "return-key", "reusedWindow": !openedByUs, "closedWindows": tidy.closed, "clearedDrafts": tidy.clearedDrafts])
 }
 
+// MARK: - Message menu probe (read only)
+
+func messageTable(in window: AXUIElement) -> AXUIElement? {
+	for area in children(window) where role(area) == "AXScrollArea" {
+		for item in children(area) where role(item) == "AXTable" { return item }
+	}
+	return nil
+}
+
+func allLabels(in element: AXUIElement, depth: Int = 6) -> [String] {
+	var found: [String] = []
+	if role(element) == "AXStaticText", let value = text(element, "AXValue") { found.append(value) }
+	if depth > 0 { for child in children(element) { found += allLabels(in: child, depth: depth - 1) } }
+	return found
+}
+
+func actionNames(_ element: AXUIElement) -> [String] {
+	var names: CFArray?
+	return AXUIElementCopyActionNames(element, &names) == .success ? (names as? [String] ?? []) : []
+}
+
+func descendants(_ element: AXUIElement, depth: Int) -> [AXUIElement] {
+	guard depth > 0 else { return [] }
+	return children(element).flatMap { [$0] + descendants($0, depth: depth - 1) }
+}
+
+// Prints the structure of the row that holds an exact message text and the titles of its context menu. Never clicks an item.
+func probeMenu(_ app: AXUIElement, pid: pid_t, chat: String, match: String, press item: String?) {
+	let session = openChat(app, pid: pid, chat: chat)
+	defer { session.closeIfOurs() }
+	guard let table = messageTable(in: session.window) else { fail("INPUT_NOT_FOUND", "no message table") }
+	let rows = children(table).filter { role($0) == "AXRow" }
+	guard let row = rows.last(where: { candidate in ([candidate] + descendants(candidate, depth: 6)).contains { item in ["AXValue", "AXDescription", "AXTitle"].contains { (text(item, $0) ?? "").contains(match) } } }) else { fail("CHAT_NOT_FOUND", "message not visible, rows: \(rows.count)") }
+	var report: [String: Any] = ["rows": rows.count, "rowActions": actionNames(row)]
+	var holders: [String] = []
+	for item in [row] + descendants(row, depth: 6) {
+		for name in ["AXValue", "AXDescription", "AXTitle"] {
+			if let value = text(item, name), value.contains(match) { holders.append("\(role(item) ?? "?").\(name)") }
+		}
+	}
+	report["textHeldBy"] = holders
+	var cells: [[String: Any]] = []
+	for cell in children(row) {
+		cells.append(["role": role(cell) ?? "?", "actions": actionNames(cell), "kids": children(cell).map { role($0) ?? "?" }])
+	}
+	report["cells"] = cells
+	// try the first element in the row that offers a context menu
+	let candidates = [row] + descendants(row, depth: 4)
+	if let target = candidates.first(where: { actionNames($0).contains("AXShowMenu") }) {
+		_ = AXUIElementPerformAction(target, "AXShowMenu" as CFString)
+		Thread.sleep(forTimeInterval: 0.6)
+		var menu: AXUIElement?
+		let roots = [target, row, session.window, app]
+		for root in roots {
+			menu = ([root] + descendants(root, depth: 6)).first { role($0) == "AXMenu" }
+			if menu != nil { break }
+		}
+		if let menu = menu {
+			report["menuItems"] = children(menu).compactMap { role($0) == "AXMenuItem" ? (title($0) ?? "") : nil }
+			if let name = item, let entry = children(menu).first(where: { role($0) == "AXMenuItem" && title($0) == name }) {
+				let beforeWindows = windows(of: app)
+				let beforeTree = descendants(session.window, depth: 10)
+				press(entry)
+				Thread.sleep(forTimeInterval: 1.0)
+				var found: [[String: String]] = []
+				let afterWindows = windows(of: app).filter { !contains(beforeWindows, $0) }
+				let fresh = descendants(session.window, depth: 10).filter { !contains(beforeTree, $0) } + afterWindows.flatMap { [$0] + descendants($0, depth: 10) }
+				let interesting: Set<String> = ["AXButton", "AXMenuItem", "AXCheckBox", "AXRadioButton", "AXPopUpButton", "AXSheet", "AXPopover", "AXDialog", "AXMenu", "AXWindow", "AXMenuButton", "AXImage"]
+				for element in fresh where interesting.contains(role(element) ?? "") {
+					found.append(["role": role(element) ?? "?", "title": title(element) ?? "", "desc": text(element, "AXDescription") ?? "", "id": identifier(element) ?? ""])
+				}
+				// the emoji buttons carry no name, so list every readable attribute of the first few to find what identifies them
+				var emojiDetails: [[String: String]] = []
+				for element in fresh where role(element) == "AXButton" && text(element, "AXDescription") == "emoji" {
+					if emojiDetails.count >= 6 { break }
+					var names: CFArray?
+					_ = AXUIElementCopyAttributeNames(element, &names)
+					var detail: [String: String] = [:]
+					for name in (names as? [String]) ?? [] {
+						if let value = attribute(element, name) {
+							if let str = value as? String { detail[name] = String(str.prefix(40)) }
+							else if let list = value as? [AXUIElement] { detail[name] = "children:\(list.count) " + list.map { role($0) ?? "?" }.joined(separator: ",") }
+						}
+					}
+					for kid in children(element) {
+						for name in ["AXDescription", "AXValue", "AXTitle", "AXHelp"] {
+							if let str = text(kid, name), !str.isEmpty { detail["child.\(role(kid) ?? "?").\(name)"] = String(str.prefix(40)) }
+						}
+					}
+					emojiDetails.append(detail)
+				}
+				let emojiCount = fresh.filter { role($0) == "AXButton" && text($0, "AXDescription") == "emoji" }.count
+				report["afterPress"] = ["newWindows": afterWindows.count, "emojiButtons": emojiCount, "emojiDetails": emojiDetails, "otherControls": found.filter { $0["desc"] != "emoji" }]
+				// back out without confirming anything
+				for window in afterWindows { closeWindow(window) }
+				_ = AXUIElementPerformAction(session.window, "AXCancel" as CFString)
+				for element in fresh where ["AXSheet", "AXPopover", "AXDialog", "AXMenu"].contains(role(element) ?? "") {
+					_ = AXUIElementPerformAction(element, "AXCancel" as CFString)
+				}
+				if focusWindow(app, session.window) { pressKey(pid: pid, key: 53) }
+			} else {
+				_ = AXUIElementPerformAction(menu, "AXCancel" as CFString)
+			}
+		} else {
+			report["menuItems"] = "no menu element found"
+		}
+	} else {
+		report["menuItems"] = "no element offers AXShowMenu"
+	}
+	succeed(["ok": true, "probe": report])
+}
+
 // MARK: - Entry point
 
 guard AXIsProcessTrusted() else { fail("ACCESSIBILITY_DENIED") }
@@ -379,6 +509,11 @@ switch command {
 case "inspect":
 	_ = ensureMainWindow(appElement)
 	inspect(appElement)
+case "probe-menu":
+	guard let flag = arguments.firstIndex(of: "--chat"), flag + 1 < arguments.count,
+		let matchFlag = arguments.firstIndex(of: "--match"), matchFlag + 1 < arguments.count else { fail("USAGE") }
+	let pressFlag = arguments.firstIndex(of: "--press")
+	probeMenu(appElement, pid: process.processIdentifier, chat: arguments[flag + 1], match: arguments[matchFlag + 1], press: pressFlag.flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil })
 case "send":
 	guard let flag = arguments.firstIndex(of: "--chat"), flag + 1 < arguments.count else { fail("USAGE") }
 	let chat = arguments[flag + 1]

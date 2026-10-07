@@ -52,7 +52,10 @@ export async function sendToChat(chatName: string, text: string, dryRun = false)
 	if (!existsSync(HELPER)) throw new AppError(Message.HELPER_MISSING);
 
 	const reply = await runHelper(
-		['send', '--chat', chatName, ...(dryRun ? ['--dry-run'] : []), ...(env.keepOtherWindows ? ['--keep-other-windows'] : [])],
+		['send', '--chat', chatName, ...(dryRun ? ['--dry-run'] : []), ...(env.keepOtherWindows ? ['--keep-other-windows'] : []),
+			// background only by default: bringing KakaoTalk forward sends the user's typing to the wrong app
+			...(env.allowForeground ? [] : ['--no-foreground']),
+		],
 		text,
 	);
 	if (reply.ok) return;
