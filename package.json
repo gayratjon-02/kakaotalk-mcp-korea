@@ -1,27 +1,42 @@
 {
   "name": "kakaotalk-mcp-korea",
   "version": "0.1.0",
-  "description": "MCP server and CLI for KakaoTalk on macOS — read chats from the local database and send messages via Accessibility",
+  "description": "MCP server for KakaoTalk on macOS (unofficial): read chats, files and pictures from the local database, send and manage messages through the app",
   "type": "module",
   "bin": {
     "kakaotalk-mcp-korea": "dist/index.js"
   },
   "main": "dist/index.js",
   "files": [
-    "dist"
+    "dist",
+    "!dist/test",
+    "!dist/bin",
+    "src/native",
+    "scripts/build-native.mjs",
+    "README.md",
+    "README.ko.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc && npm run build:native",
+    "build": "tsc && node scripts/build-native.mjs",
+    "build:release": "rm -rf dist && tsc -p tsconfig.build.json",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "test": "npm run build && node --test 'dist/test/**/*.test.js'",
-    "build:native": "mkdir -p dist/bin && { [ dist/bin/kakao-ax -nt src/native/kakao-ax.swift ] || swiftc -O -swift-version 5 src/native/kakao-ax.swift -o dist/bin/kakao-ax; }"
+    "postinstall": "node scripts/build-native.mjs --soft",
+    "prepublishOnly": "npm test && npm run build:release"
   },
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "kakaotalk",
+    "kakao",
     "macos",
-    "accessibility"
+    "accessibility",
+    "claude",
+    "ai-agents",
+    "chat"
   ],
   "os": [
     "darwin"
@@ -46,5 +61,12 @@
     "type": "git",
     "url": "git+https://github.com/gayratjon-02/kakaotalk-mcp-korea.git"
   },
-  "author": "gayratjon-02"
+  "author": "gayratjon-02",
+  "homepage": "https://github.com/gayratjon-02/kakaotalk-mcp-korea#readme",
+  "bugs": {
+    "url": "https://github.com/gayratjon-02/kakaotalk-mcp-korea/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
