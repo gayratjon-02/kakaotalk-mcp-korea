@@ -104,10 +104,10 @@ const TEXT: Record<Message, Record<Lang, string>> = {
 		[Lang.UZ]: "KakaoTalk ishlamayapti va uni ishga tushirib bo'lmadi.",
 	},
 	[Message.MAIN_WINDOW_MISSING]: {
-		[Lang.EN]: 'The KakaoTalk main window is closed. Click the KakaoTalk icon in the Dock to show it, then try again.',
-		[Lang.KO]: '카카오톡 메인 창이 닫혀 있습니다. Dock의 카카오톡 아이콘을 눌러 창을 연 뒤 다시 시도해 주세요.',
-		[Lang.RU]: 'Главное окно KakaoTalk закрыто. Нажмите на значок KakaoTalk в Dock и повторите попытку.',
-		[Lang.UZ]: "KakaoTalk asosiy oynasi yopilgan. Dock'dagi KakaoTalk belgisini bosib oynani oching va qayta urinib ko'ring.",
+		[Lang.EN]: 'The KakaoTalk main window is not on this desktop or is closed. Best fix: right-click the KakaoTalk icon in the Dock, choose Options, Assign To, All Desktops. Otherwise click the icon to show the window, then try again.',
+		[Lang.KO]: '카카오톡 메인 창이 현재 데스크톱에 없거나 닫혀 있습니다. 해결: Dock의 카카오톡 아이콘을 우클릭 > 옵션 > 지정 대상 > 모든 데스크탑. 아니면 아이콘을 눌러 창을 연 뒤 다시 시도해 주세요.',
+		[Lang.RU]: 'Главное окно KakaoTalk не на этом рабочем столе или закрыто. Лучшее решение: правый клик по значку KakaoTalk в Dock, Параметры, Назначить, Все рабочие столы. Или нажмите на значок, чтобы показать окно, и повторите попытку.',
+		[Lang.UZ]: "KakaoTalk asosiy oynasi bu ish stolida yo'q yoki yopilgan. Eng yaxshi yechim: Dock'dagi KakaoTalk belgisini o'ng bosing, Options, Assign To, All Desktops. Aks holda belgini bosib oynani oching va qayta urinib ko'ring.",
 	},
 	[Message.SEND_UNVERIFIED]: {
 		[Lang.EN]: 'The text was entered but it could not be confirmed that the message was sent. Check the chat before retrying.',
