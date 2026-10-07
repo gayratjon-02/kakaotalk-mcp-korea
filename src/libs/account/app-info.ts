@@ -15,8 +15,17 @@ function plistValue(file: string, key: string): string | null {
 	}
 }
 
+// KakaoTalk may not be installed or logged in yet (a fresh Mac, a CI runner): a missing preferences file is "no value", not an error
+function allPreferences(): ReturnType<typeof readPreferences> {
+	try {
+		return readPreferences();
+	} catch {
+		return [];
+	}
+}
+
 function preference(key: string): string | null {
-	for (const dict of readPreferences()) {
+	for (const dict of allPreferences()) {
 		const value = dict[key];
 		if (typeof value === 'string' && value.length > 0) return value;
 	}
@@ -42,7 +51,7 @@ export function readLoginId(): string | null {
 
 // KakaoTalk's own limit, in minutes, for "delete for everyone"; 1440 (one day) when the preference is missing
 export function readDeleteLimitMinutes(): number {
-	for (const dict of readPreferences()) {
+	for (const dict of allPreferences()) {
 		const value = dict.UserPropertyMessageDeleteLimitTime;
 		if (typeof value === 'number' && value > 0) return value;
 	}
