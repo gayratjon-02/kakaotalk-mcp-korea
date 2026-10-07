@@ -1,6 +1,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+export const BUNDLE_ID = 'com.kakao.KakaoTalkMac';
+
 const HOME = homedir();
 const CONTAINER = join(HOME, 'Library/Containers/com.kakao.KakaoTalkMac/Data/Library');
 
