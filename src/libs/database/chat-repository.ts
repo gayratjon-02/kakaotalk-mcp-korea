@@ -105,9 +105,19 @@ export function resolveChat(query: string): Chat {
 	return pool[0];
 }
 
-export function listMessages(options: { chatId?: string; sinceSeconds?: number; limit?: number }): ChatMessage[] {
+export function listMessages(options: {
+	chatId?: string;
+	sinceSeconds?: number;
+	limit?: number;
+	excludeMine?: boolean;
+}): ChatMessage[] {
+	const me = myUserId();
 	const where: string[] = [];
 	const params: Array<string | number> = [];
+	if (options.excludeMine) {
+		where.push('m.authorId <> ?');
+		params.push(me);
+	}
 	if (options.chatId) {
 		where.push('m.chatId = ?');
 		params.push(options.chatId);
@@ -120,7 +130,6 @@ export function listMessages(options: { chatId?: string; sinceSeconds?: number; 
 	const rows = getDb()
 		.prepare(`${MESSAGE_SELECT} ${clause} ORDER BY m.sentAt DESC LIMIT ?`)
 		.all(...params, clamp(options.limit ?? 50)) as MessageRow[];
-	const me = myUserId();
 	return rows.map((row) => toMessage(row, me));
 }
 
@@ -156,10 +165,12 @@ export function unreadSummary(perChat = 5, maxChats = 20): UnreadChat[] {
 		.filter((chat) => chat.unreadCount > 0)
 		.slice(0, Math.min(Math.max(Math.trunc(maxChats) || 1, 1), 50))
 		.map((chat) => {
-			const incoming = listMessages({ chatId: chat.id, limit: Math.min(chat.unreadCount, MAX_LIMIT) })
-				.filter((message) => !message.fromMe)
-				.slice(0, cappedPerChat)
-				.reverse();
+			// the filter runs in SQL so my own replies cannot push unread messages out of the window
+			const incoming = listMessages({
+				chatId: chat.id,
+				limit: Math.min(chat.unreadCount, cappedPerChat),
+				excludeMine: true,
+			}).reverse();
 			return {
 				chatId: chat.id,
 				chatName: chat.name,
