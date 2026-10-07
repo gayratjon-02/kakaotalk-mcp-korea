@@ -48,6 +48,8 @@ const SCHEMA = `
 		authorId INTEGER,
 		message TEXT,
 		type INTEGER,
+		status INTEGER DEFAULT 0,
+		attachment TEXT,
 		sentAt INTEGER
 	);
 	CREATE TABLE NTChatContext (
@@ -158,16 +160,48 @@ export function seedChat(
 
 export function seedMessage(
 	db: KakaoDb,
-	row: { logId: number; chatId: number; authorId: number; message?: string | null; type?: number; sentAt?: number },
+	row: {
+		logId: number;
+		chatId: number;
+		authorId: number;
+		message?: string | null;
+		type?: number;
+		status?: number;
+		attachment?: string | null;
+		sentAt?: number;
+	},
 ): void {
-	db.prepare('INSERT INTO NTChatMessage (logId, chatId, authorId, message, type, sentAt) VALUES (?, ?, ?, ?, ?, ?)').run(
+	db.prepare(
+		'INSERT INTO NTChatMessage (logId, chatId, authorId, message, type, status, attachment, sentAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+	).run(
 		row.logId,
 		row.chatId,
 		row.authorId,
 		row.message ?? null,
 		row.type ?? 1,
+		row.status ?? 0,
+		row.attachment ?? null,
 		row.sentAt ?? 0,
 	);
+}
+
+// the system row a real "unsend" (delete for everyone) produces alongside the deleted message;
+// see chat-repository.ts's DELETED_BY_SENDER for how it is matched back to that message.
+export function seedDeleteFeed(db: KakaoDb, feedLogId: number, chatId: number, deletedLogId: number, sentAt = 0): void {
+	seedMessage(db, {
+		logId: feedLogId,
+		chatId,
+		authorId: 0,
+		type: 0,
+		status: 5,
+		message: JSON.stringify({ feedType: 14, logId: deletedLogId, hidden: true }),
+		sentAt,
+	});
+}
+
+// the attachment shape a reply (kind 26) carries, pointing at the message it quotes
+export function replyAttachment(srcLogId: number, srcMessage: string): string {
+	return JSON.stringify({ src_userId: 1, src_logId: srcLogId, src_type: 1, src_message: srcMessage, src_spoilers: [] });
 }
 
 export function seedMetaTitle(db: KakaoDb, chatId: number, content: string, revision = 1): void {
