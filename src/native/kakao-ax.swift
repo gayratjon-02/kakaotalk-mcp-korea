@@ -334,7 +334,7 @@ func send(_ app: AXUIElement, pid: pid_t, chat: String, dryRun: Bool, message: S
 	let cleared = waitUntil(4) { (text(field, "AXValue") ?? "").isEmpty }
 	closeIfOurs()
 	if !cleared { fail("SEND_UNVERIFIED") }
-	succeed(["ok": true, "sent": true, "reusedWindow": !openedByUs, "closedWindows": tidy.closed, "clearedDrafts": tidy.clearedDrafts])
+	succeed(["ok": true, "sent": true, "method": pressedSend ? "send-button" : "return-key", "reusedWindow": !openedByUs, "closedWindows": tidy.closed, "clearedDrafts": tidy.clearedDrafts])
 }
 
 // MARK: - Entry point
