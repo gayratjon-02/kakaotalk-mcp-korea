@@ -84,8 +84,47 @@ func press(_ element: AXUIElement) {
 	_ = AXUIElementPerformAction(element, "AXPress" as CFString)
 }
 
+// MARK: - Windows on other Spaces
+
+// An app's AXWindows list only holds windows on the Space that is showing. The technique AltTab uses reaches the rest:
+// an element for each possible id of the app is created from a remote token, and the ones that are windows are kept.
+// _AXUIElementCreateWithRemoteToken is undocumented, so it is looked up at runtime and everything works without it.
+// It needs the same Accessibility permission as the normal calls and changes nothing on the system.
+typealias RemoteTokenCreate = @convention(c) (CFData) -> Unmanaged<AXUIElement>?
+let remoteTokenCreate: RemoteTokenCreate? = {
+	guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "_AXUIElementCreateWithRemoteToken") else { return nil }
+	return unsafeBitCast(symbol, to: RemoteTokenCreate.self)
+}()
+
+// switched on by ensureMainWindow when the normal list does not show the main window
+var remoteWindowSearch = false
+// window element ids grow as the app creates elements, so the next scan reaches a bit past the highest id seen so far
+var highestWindowElementId = 0
+
+func remoteWindows(pid: pid_t) -> [AXUIElement] {
+	guard let create = remoteTokenCreate else { return [] }
+	var token = Data(count: 20)
+	token.replaceSubrange(0..<4, with: withUnsafeBytes(of: pid) { Data($0) })
+	token.replaceSubrange(4..<8, with: withUnsafeBytes(of: Int32(0)) { Data($0) })
+	token.replaceSubrange(8..<12, with: withUnsafeBytes(of: Int32(0x636f636f)) { Data($0) })
+	var found: [AXUIElement] = []
+	let limit = max(12_000, highestWindowElementId + 6_000)
+	for id in 0..<limit {
+		token.replaceSubrange(12..<20, with: withUnsafeBytes(of: UInt64(id)) { Data($0) })
+		guard let element = create(token as CFData)?.takeRetainedValue(), (attribute(element, "AXRole") as? String) == "AXWindow" else { continue }
+		found.append(element)
+		highestWindowElementId = max(highestWindowElementId, id)
+	}
+	return found
+}
+
 func windows(of app: AXUIElement) -> [AXUIElement] {
-	(attribute(app, "AXWindows") as? [AXUIElement]) ?? []
+	var list = (attribute(app, "AXWindows") as? [AXUIElement]) ?? []
+	guard remoteWindowSearch else { return list }
+	var pid: pid_t = 0
+	AXUIElementGetPid(app, &pid)
+	for window in remoteWindows(pid: pid) where !list.contains(where: { CFEqual($0, window) }) { list.append(window) }
+	return list
 }
 
 func contains(_ list: [AXUIElement], _ element: AXUIElement) -> Bool {
@@ -108,9 +147,15 @@ func focusWindow(_ app: AXUIElement, _ window: AXUIElement) -> Bool {
 		guard let focused = attribute(app, "AXFocusedWindow") else { return false }
 		return CFEqual(focused, window)
 	}
-	if isFocused() { return true }
-	_ = AXUIElementPerformAction(window, "AXRaise" as CFString)
+	// Measured on a real Mac: setting AXMain and AXFocusedWindow does not bring the app forward, while AXRaise does.
+	// So these two are always set, even when the window already claims focus, because after one of our chat windows
+	// was closed AXFocusedWindow can still name the main window without it being the key window.
+	_ = AXUIElementSetAttributeValue(window, "AXMain" as CFString, kCFBooleanTrue)
 	_ = AXUIElementSetAttributeValue(app, "AXFocusedWindow" as CFString, window)
+	if isFocused() { return true }
+	// raising is the only extra step that takes focus, so it is reserved for foreground mode
+	guard foregroundAllowed else { return false }
+	_ = AXUIElementPerformAction(window, "AXRaise" as CFString)
 	return waitUntil(2) { isFocused() }
 }
 
@@ -153,6 +198,10 @@ func ensureMainWindow(_ app: AXUIElement) -> AXUIElement {
 		return settled != nil
 	}
 	if let window = settled { return window }
+	// the window may sit on another Space: reach it with the remote search, which never touches the user's focus
+	remoteWindowSearch = true
+	if let window = findMainWindow(app) { return window }
+	remoteWindowSearch = false
 	// in background mode the app is never brought forward: ask the user to show the window instead
 	guard foregroundAllowed else { fail("MAIN_WINDOW_MISSING", "background mode: the main window is not on this Space or is closed") }
 	// windows on another display or Space are invisible to the Accessibility API until the app is brought forward
@@ -310,7 +359,7 @@ func openChat(_ app: AXUIElement, pid: pid_t, chat: String) -> ChatSession {
 			_ = waitUntil(3) { runningApp()?.isActive ?? false }
 			if fireOpen() { waitForChatWindow(6) }
 		}
-		guard chatWindow != nil else { fail("CHAT_WINDOW_NOT_OPENED") }
+		guard chatWindow != nil else { fail("CHAT_WINDOW_NOT_OPENED", "no new window appeared after Return") }
 		openedByUs = true
 	}
 
