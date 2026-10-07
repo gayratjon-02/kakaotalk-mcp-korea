@@ -18,11 +18,14 @@ export function registerReadTools(server: McpServer): void {
 		'kakao_list_chats',
 		{
 			title: 'List KakaoTalk chats',
-			description: 'List chats ordered by last activity, with unread counts.',
-			inputSchema: { limit: z.number().int().min(1).max(500).default(30) },
+			description: 'List chats ordered by last activity, with unread counts. scope filters to direct chats, groups or open chats.',
+			inputSchema: {
+				limit: z.number().int().min(1).max(500).default(30),
+				scope: z.enum(['all', 'direct', 'group', 'open']).default('all'),
+			},
 			annotations: READ_ONLY,
 		},
-		async ({ limit }) => run(() => listChats(limit)),
+		async ({ limit, scope }) => run(() => listChats(limit, scope)),
 	);
 
 	server.registerTool(

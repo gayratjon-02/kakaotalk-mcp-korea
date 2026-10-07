@@ -1,7 +1,7 @@
 import { kindLabel } from '../enum/message-kind.enum.js';
 import { Message } from '../enum/message.enum.js';
 import { AppError } from '../server/app-error.js';
-import type { Chat } from '../type/chat.type.js';
+import type { Chat, ChatKind, ChatScope } from '../type/chat.type.js';
 import type { ChatMessage } from '../type/message.type.js';
 import type { UnreadChat } from '../type/unread.type.js';
 import { getDb } from './connection.js';
@@ -11,14 +11,21 @@ const MAX_LIMIT = 500;
 // NTChatMeta rows of this type hold the group title as plain text
 const META_TITLE = 3;
 
-const SENDER_NAME = 'COALESCE(u.displayName, u.friendNickName, u.nickName)';
+// open chat members have their profile under the room's linkId, everyone else under linkId 0.
+// scalar subqueries keep one row per message even when a person exists under both.
+const SENDER_NAME = `COALESCE(
+	(SELECT COALESCE(NULLIF(u.nickName, ''), NULLIF(u.displayName, ''), NULLIF(u.friendNickName, ''))
+		FROM NTUser u
+		WHERE u.userId = m.authorId AND u.linkId > 0
+			AND u.linkId = (SELECT r.linkId FROM NTChatRoom r WHERE r.chatId = m.chatId) LIMIT 1),
+	(SELECT COALESCE(u.displayName, u.friendNickName, u.nickName)
+		FROM NTUser u WHERE u.userId = m.authorId AND u.linkId = 0 LIMIT 1))`;
 
 const MESSAGE_SELECT = `
 	SELECT CAST(m.logId AS TEXT) AS id, CAST(m.chatId AS TEXT) AS chatId,
 		CAST(m.authorId AS TEXT) AS senderId, ${SENDER_NAME} AS senderName,
 		m.message AS text, m.type AS kind, m.sentAt AS sentAt
-	FROM NTChatMessage m
-	LEFT JOIN NTUser u ON m.authorId = u.userId AND u.linkId = 0`;
+	FROM NTChatMessage m`;
 
 type MessageRow = {
 	id: string;
@@ -29,6 +36,12 @@ type MessageRow = {
 	kind: number;
 	sentAt: number;
 };
+
+// open chats carry a linkId; type 1 and rooms with more than two members are groups
+function chatKind(linkId: number, type: number, members: number): ChatKind {
+	if (linkId > 0) return 'open';
+	return type === 1 || members > 2 ? 'group' : 'direct';
+}
 
 function clamp(limit: number): number {
 	return Math.min(Math.max(Math.trunc(limit) || 1, 1), MAX_LIMIT);
@@ -59,10 +72,10 @@ function toMessage(row: MessageRow, me: string): ChatMessage {
 	};
 }
 
-export function listChats(limit = 50): Chat[] {
+export function listChats(limit = 50, scope: ChatScope = 'all'): Chat[] {
 	const rows = getDb()
 		.prepare(
-			`SELECT CAST(r.chatId AS TEXT) AS id, r.type AS type, r.chatName AS chatName,
+			`SELECT CAST(r.chatId AS TEXT) AS id, r.type AS type, r.linkId AS linkId, r.chatName AS chatName,
 				COALESCE(u.displayName, u.friendNickName, u.nickName) AS peerName,
 				(SELECT m.content FROM NTChatMeta m WHERE m.chatId = r.chatId AND m.type = ${META_TITLE}
 					ORDER BY m.revision DESC LIMIT 1) AS metaTitle,
@@ -76,6 +89,7 @@ export function listChats(limit = 50): Chat[] {
 		.all(clamp(limit)) as Array<{
 		id: string;
 		type: number;
+		linkId: number;
 		chatName: string | null;
 		peerName: string | null;
 		metaTitle: string | null;
@@ -84,14 +98,16 @@ export function listChats(limit = 50): Chat[] {
 		unreadCount: number;
 		lastAt: number;
 	}>;
-	return rows.map((row) => ({
+	const chats = rows.map((row) => ({
 		id: row.id,
 		name: row.chatName || row.peerName || row.metaTitle || row.openName || '(unknown)',
 		type: row.type,
+		kind: chatKind(row.linkId, row.type, row.memberCount),
 		memberCount: row.memberCount,
 		unreadCount: row.unreadCount,
 		lastMessageAt: row.lastAt ? iso(row.lastAt) : null,
 	}));
+	return scope === 'all' ? chats : chats.filter((chat) => chat.kind === scope);
 }
 
 // exact id, then exact name, then a single substring match; anything else is ambiguous
